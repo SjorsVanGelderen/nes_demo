@@ -1,0 +1,20 @@
+; game.asm
+LATCH_CONTROLLER                 = $C07B
+P1_READ_SELECT                   = $C0A5
+FOREVER                          = $C06E
+LOAD_SPRITES                     = $C057
+CLEAR_MEMORY                     = $C019
+VBLANK_1                         = $C014
+P1_READ_B_DONE                   = $C0A5
+VBLANK_2                         = $C038
+SPRITES                          = $E020
+P1_READ_A                        = $C085
+P1_READ_SELECT_DONE              = $C0B5
+P1_READ_B                        = $C095
+LOAD_PALETTES_LOOP               = $C04C
+LOAD_SPRITES_LOOP                = $C059
+RESET                            = $C000
+P1_READ_A_DONE                   = $C095
+NMI                              = $C071
+PALETTE                          = $E000
+LOAD_PALETTES                    = $C03D
