@@ -97,40 +97,78 @@ LATCH_CONTROLLER:
 	STA $4016
 	LDA #$00
 	STA $4016       	; Tell both the controllers to latch buttons
-
+	
+;;; PLAYER 1
+	
 P1_READ_A: 
-	LDA $4016		; Player 1 - A
-	AND #%00000001  	; Only look at bit 0
-	BEQ P1_READ_A_DONE 	; Branch to READ_A_DONE if button is NOT pressed (0)
-				; Add instructions here to do something when button IS pressed (1)
-	LDA $0203       	; Load sprite X position
-	CLC             	; Make sure the carry flag is clear
-	ADC #$01        	; A = A + 1
-	STA $0203       	; Save sprite X position
-P1_READ_A_DONE:			; Handling this button is done	
+	LDA $4016		
+	AND #%00000001  	
+	BEQ P1_READ_A_DONE 	
+	;; Do something here
+P1_READ_A_DONE:
 
 P1_READ_B: 
-	LDA $4016       	; Player 1 - B
-	AND #%00000001  	; Only look at bit 0
-	BEQ P1_READ_B_DONE 	; Branch to READ_B_DONE if button is NOT pressed (0)
-				; Add instructions here to do something when button IS pressed (1)
-	LDA $0203       	; Load sprite X position
-	SEC             	; Make sure carry flag is set
-	SBC #$01        	; A = A - 1
-	STA $0203       	; Save sprite X position
-P1_READ_B_DONE:        		; Handling this button is done
+	LDA $4016       	
+	AND #%00000001  	
+	BEQ P1_READ_B_DONE 	
+	;; Do something here	
+P1_READ_B_DONE:        		
 
 P1_READ_SELECT: 
-	LDA $4016       	; Player 1 - Select
-	AND #%00000001  	; Only look at bit 0
-	BEQ P1_READ_SELECT_DONE 	; Branch to READ_B_DONE if button is NOT pressed (0)
-				; Add instructions here to do something when button IS pressed (1)
-	LDA $0203       	; Load sprite X position
-	SEC             	; Make sure carry flag is set
-	SBC #$01        	; A = A - 1
-	STA $0203       	; Save sprite X position
-P1_READ_SELECT_DONE:   		; Handling this button is done
+	LDA $4016       	
+	AND #%00000001  	
+	BEQ P1_READ_SELECT_DONE
+	;; Do something here
+P1_READ_SELECT_DONE:   		
 
+P1_READ_START: 
+	LDA $4016       	
+	AND #%00000001  	
+	BEQ P1_READ_START_DONE 
+	;; Do something here
+P1_READ_START_DONE:   	
+
+P1_READ_UP: 
+	LDA $4016       	
+	AND #%00000001  	
+	BEQ P1_READ_UP_DONE
+	LDA $0204       	; Move player up
+	SEC             	
+	SBC #$01        	
+	STA $0204
+P1_READ_UP_DONE:   	
+
+P1_READ_DOWN: 
+	LDA $4016       	
+	AND #%00000001  	
+	BEQ P1_READ_DOWN_DONE  
+	LDA $0204       	; Move player down
+	SEC             	
+	ADC #$01        	
+	STA $0204       	
+	
+P1_READ_DOWN_DONE:
+	
+P1_READ_LEFT: 
+	LDA $4016       	
+	AND #%00000001  	
+	BEQ P1_READ_LEFT_DONE 
+	LDA $0203		; Move player left
+	SEC             	
+	SBC #$01        	
+	STA $0203       	
+P1_READ_LEFT_DONE:   	
+
+P1_READ_RIGHT: 
+	LDA $4016       	
+	AND #%00000001  	
+	BEQ P1_READ_RIGHT_DONE 
+	LDA $0203       	; Move player right
+	SEC             	
+	ADC #$01        	
+	STA $0203       	
+P1_READ_RIGHT_DONE:
+	
 	RTI             	; Return from interrupt
   
 	.bank 1
