@@ -190,7 +190,7 @@ SPRITES:
 				; Processor will jump to the label NMI:
 	.dw RESET      		; When the processor first turns on or is reset, it will jump
 				; To the label RESET:
-	.dw 0          		; External interrupt IRQ is not used in this tutorial
+	.dw 0          		; External interrupt IRQ is not used
   
 	.bank 2
 	.org $0000
