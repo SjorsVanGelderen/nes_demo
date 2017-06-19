@@ -3,36 +3,19 @@
 ;===============================
 
 ;********************************
-; Constants
-;********************************
-
-PRG_COUNT = 1
-CHR_COUNT = 1
-MIRRORING = %0001
-
-
-;********************************
-; Variables
-;********************************
-
-; None yet
-
-
-;********************************
 ; iNES header
 ;********************************
 
-    .db "NES",$1A		               ; ID of the header
-    .db PRG_COUNT		               ; 1 PRG-ROM block
-    .db CHR_COUNT		               ; 1 CHR-ROM block
-    .db $00|MIRRORING                  ; Mapper 0 with mirroring
-    .dsb 9,$00                         ; Padding
+.byte "NES",$1A		               ; Type
+.byte $01		                   ; 1 PRG-ROM block
+.byte $01		                   ; 1 CHR-ROM block
+.byte 0,0,0,0,0,0,0,0              ; Padding, possibly replace with PAD?
 
 
 ;********************************
 ; Setup
 ;********************************
-    .base $10000-(PRG_COUNT*$4000)
+.org $C000                              
 
 Reset
     SEI			                   ; Disable IRQs
@@ -71,35 +54,26 @@ ClearMemory
     INX
     BNE ClearMemory
 
-    JSR AwaitVerticalBlank          ; Second wait
-
-
-    LDA #%10010000                  ; Enable NMI, sprites from PT1
-    STA $2000
-    LDA #%00011110                  ; Enable sprites, background, disable clipping left
-    STA $2001
-    LDA #$00
-    STA $2005                       ; Disable scrolling
-    STA $2005
+    JSR AwaitVerticalBlank         ; Second wait
 
 
 ;********************************
 ; Graphics
 ;********************************
 
-;LoadPalettes
-;    LDA $2002		               ; Read PPU status to reset the high/low latch
-;    LDA #$3F
-;    STA $2006             	       ; Write the high byte of $3F00 address
-;    LDA #$00
-;    STA $2006 	                   ; Write the low byte of $3F00 address
-;    LDX #$00              	       ; Start out at 0
-;LoadPalettesLoop
-;    LDA Palette, x         	    ; Load data from address (palette + the value in x)
-;    STA $2007             	    ; Write to PPU
-;    INX                   	    ; X = X + 1
-;    CPX #$20              	    ; Compare X to hex $20, decimal 32 - copying 32 bytes = 4 sprites
-;    BNE LoadPalettesLoop 	    ; Branch to LOAD_PALETTES_LOOP if compare was Not Equal to zero
+LoadPalettes
+    LDA $2002		               ; Read PPU status to reset the high/low latch
+    LDA #$3F
+    STA $2006             	       ; Write the high byte of $3F00 address
+    LDA #$00
+    STA $2006 	                   ; Write the low byte of $3F00 address
+    LDX #$00              	       ; Start out at 0
+LoadPalettesLoop
+    LDA Palette, x         	    ; Load data from address (palette + the value in x)
+    STA $2007             	    ; Write to PPU
+    INX                   	    ; X = X + 1
+    CPX #$20              	    ; Compare X to hex $20, decimal 32 - copying 32 bytes = 4 sprites
+    BNE LoadPalettesLoop 	    ; Branch to LOAD_PALETTES_LOOP if compare was Not Equal to zero
                                
 ;LoadSprites
 ;    LDX #$00
@@ -237,47 +211,182 @@ LoadBackgroundLoop
 
 NonMaskableInterrupt
     LDA #$00
-    STA $2003       	           ; Set the low byte (00) of the RAM address
+    STA $2003       	            ; Set the low byte (00) of the RAM address
     LDA #$02
-    STA $4014       	           ; Set the high byte (02) of the RAM address, start the transfer
+    STA $4014       	            ; Set the high byte (02) of the RAM address, start the transfer
 
-                                   ; Clean up PPU
-    LDA #%10010000                 ; Enable NMI, sprites from PT0, background from PT1
+    ; Clean up PPU
+    LDA #%10010000                  ; Enable NMI, sprites from PT0, background from PT1
     STA $2000
-    LDA #%00011110                 ; Enable sprites, background, no clipping left
+    LDA #%00011110                  ; Enable sprites, background, no clipping left
     STA $2001
-    LDA #$00                       ; No background scrolling
+    LDA #$00                        ; No background scrolling
     STA $2005
     STA $2005
 
-InterruptRequest
-    ; Nothing yet
+; Should be possible to reduce duplication here
+    JMP MovePlayerUpDone            ; Skip this behavior
+MovePlayerUp
+    LDX #$00                        ; Clear X register
+
+MovePlayerUpLoop
+    LDA $0200, x         	    ; For each segment, move up
+    SBC #$01
+    CLC
+    STA $0200, x
+
+    TXA                             ; Increment the counter
+    ADC #$04
+    CLC
+    TAX
+    CPX #$10
+    BNE MovePlayerUpLoop
+
+    RTS
+MovePlayerUpDone
+
+    JMP MovePlayerDownDone          ; Skip this behavior
+MovePlayerDown:
+    LDX #$00                        ; Clear X register
+
+MovePlayerDownLoop
+    LDA $0200, x         	    ; For each segment, move up
+    ADC #$01
+    CLC
+    STA $0200, x
+
+    TXA                             ; Increment the counter
+    ADC #$04
+    CLC
+    TAX
+    CPX #$10
+    BNE MovePlayerDownLoop
+
+    RTS
+MovePlayerDownDone
+
+    JMP MovePlayerLeftDone          ; Skip this behavior
+MovePlayerLeft
+    LDX #$00                        ; Clear X register
+
+MovePlayerLeftLoop
+    LDA $0203, x         	    ; For each segment, move up
+    SBC #$01
+    CLC
+    STA $0203, x
+
+    TXA                             ; Increment the counter
+    ADC #$04
+    CLC
+    TAX
+    CPX #$10
+    BNE MovePlayerLeftLoop
+
+    RTS
+MovePlayerLeftDone
+
+    JMP MovePlayerRightDone         ; Skip this behavior
+MovePlayerRight
+    LDX #$00                        ; Clear X register
+
+MovePlayerRightLoop
+    LDA $0203, x         	    ; For each segment, move up
+    ADC #$01
+    CLC
+    STA $0203, x
+
+    TXA                             ; Increment the counter
+    ADC #$04
+    CLC
+    TAX
+    CPX #$10
+    BNE MovePlayerRightLoop
+
+    RTS
+MovePlayerRightDone
 
 
 ;********************************
-; Vectors
+; Input
 ;********************************
 
-    .org $FFFA     		           ; First of the three vectors starts here
-    .dw NonMaskableInterrupt       ; When an NMI happens (once per frame if enabled) the 
-                                   ; Processor will jump to the label NMI:
-    .dw Reset      		           ; When the processor first turns on or is reset, it will jump
-                                   ; To the label RESET:
-    .dw InterruptRequest           ; Not really used at present
+LatchController                     ; Tell both the controllers to latch buttons
+    LDA #$01
+    STA $4016
+    LDA #$00
+    STA $4016       	       
 
+Player1ReadA 
+    LDA $4016		
+    AND #%00000001  	
+    BEQ Player1ReadADone
+Player1ReadADone
+
+Player1ReadB
+    LDA $4016       	
+    AND #%00000001  	
+    BEQ Player1ReadBDone	
+Player1ReadBDone     		
+
+Player1ReadSelect
+    LDA $4016       	
+    AND #%00000001  	
+    BEQ Player1ReadSelectDone
+Player1ReadSelectDone 		
+
+Player1ReadStart
+    LDA $4016       	
+    AND #%00000001  	
+    BEQ Player1ReadStartDone
+Player1ReadStartDone	
+
+Player1ReadUp
+    LDA $4016       	
+    AND #%00000001
+    BEQ Player1ReadUpDone
+    JSR MovePlayerUp
+    LDA $4016                       ; Query the next button and ignore it
+    JMP Player1ReadUpDownDone
+Player1ReadUpDone
+
+Player1ReadDown
+    LDA $4016       	
+    AND #%00000001  	
+    BEQ Player1ReadUpDownDone
+    JSR MovePlayerDown
+Player1ReadUpDownDone
+	
+Player1ReadLeft
+    LDA $4016
+    AND #%00000001
+    BEQ Player1ReadLeftDone
+    JSR MovePlayerLeft
+    LDA $4016                       ; Query the next button and ignore it
+    JMP Player1ReadLeftRightDone
+Player1ReadLeftDone
+
+Player1ReadRight
+    LDA $4016       	
+    AND #%00000001  	
+    BEQ Player1ReadLeftRightDone
+    JSR MovePlayerRight
+Player1ReadLeftRightDone
 
 ;********************************
-; Assets
+; Drawing
 ;********************************
 
-    ;.org $E000
+    RTI
+  
+    ;.bank 1
+    .org $E000
 
 Palette
     .db $22,$29,$1A,$0F,  $22,$36,$17,$0F,  $22,$30,$21,$0F,  $22,$27,$17,$0F   ; Background
     .db $22,$1C,$15,$14,  $22,$02,$38,$3C,  $22,$1C,$15,$14,  $22,$02,$38,$3C   ; Sprites
 
 Sprites
-                                      ; Vert tile attr horiz
+                                     ; Vert tile attr horiz
     ;.db $00, $02, $00, $80           ; Sprite 0
     ;.db $00, $03, $00, $88           ; Sprite 1
     ;.db $08, $12, $08, $80           ; Sprite 2
@@ -381,4 +490,11 @@ Attributes
     .db %00000000, %00010000, %0010000, %00010000, %00000000, %00000000, %00000000, %00110000
     .db $24,$24,$24,$24, $47,$47,$24,$24 ,$47,$47,$47,$47, $47,$47,$24,$24 ,$24,$24,$24,$24 ,$24,$24,$24,$24, $24,$24,$24,$24, $55,$56,$24,$24
 
-    .incbin "mario.chr"            ; Includes 8KB graphics file
+    .pad $FFFA     		    ; First of the three vectors starts here
+    .dw NonMaskableInterrupt        ; When an NMI happens (once per frame if enabled) the 
+                                    ; Processor will jump to the label NMI:
+    .dw Reset      		           ; When the processor first turns on or is reset, it will jump
+                                    ; To the label RESET:
+    .dw 0          		           ; External interrupt IRQ is not used
+
+    .incbin "mario.chr"              ; Includes 8KB graphics file
