@@ -22,11 +22,11 @@ MIRRORING = %0001
 ; iNES header
 ;********************************
 
-    .db "NES",$1A		               ; ID of the header
-    .db PRG_COUNT		               ; 1 PRG-ROM block
-    .db CHR_COUNT		               ; 1 CHR-ROM block
-    .db $00|MIRRORING                  ; Mapper 0 with mirroring
-    .dsb 9,$00                         ; Padding
+    .db "NES",$1A		           ; ID of the header
+    .db PRG_COUNT		           ; 1 PRG-ROM block
+    .db CHR_COUNT		           ; 1 CHR-ROM block
+    .db $00|MIRRORING              ; Mapper 0 with mirroring
+    .dsb 9,$00                     ; Padding
 
 
 ;********************************
@@ -59,83 +59,64 @@ ClearMemory
     LDA #$00
     STA $0000, x
     STA $0100, x
-    STA $0200, x
+    ;STA $0200, x
     STA $0300, x
     STA $0400, x
     STA $0500, x
     STA $0600, x
     STA $0700, x
     LDA #$FE
-    ;STA $0200, x
-    STA $0300, x                  
+    STA $0200, x
+    ;STA $0300, x                  
     INX
     BNE ClearMemory
 
-    JSR AwaitVerticalBlank          ; Second wait
+    JSR AwaitVerticalBlank         ; Second wait
 
-
-    LDA #%10010000                  ; Enable NMI, sprites from PT1
-    STA $2000
-    LDA #%00011110                  ; Enable sprites, background, disable clipping left
-    STA $2001
+LoadPalette:
+    LDA $2002                      ; Read PPU status to reset high/low latch
+    LDA #$3F
+    STA $2006                      ; Write high byte
     LDA #$00
-    STA $2005                       ; Disable scrolling
-    STA $2005
+    STA $2006                      ; Write low byte
 
-
-;********************************
-; Graphics
-;********************************
-
-;LoadPalettes
-;    LDA $2002		               ; Read PPU status to reset the high/low latch
-;    LDA #$3F
-;    STA $2006             	       ; Write the high byte of $3F00 address
-;    LDA #$00
-;    STA $2006 	                   ; Write the low byte of $3F00 address
-;    LDX #$00              	       ; Start out at 0
-;LoadPalettesLoop
-;    LDA Palette, x         	    ; Load data from address (palette + the value in x)
-;    STA $2007             	    ; Write to PPU
-;    INX                   	    ; X = X + 1
-;    CPX #$20              	    ; Compare X to hex $20, decimal 32 - copying 32 bytes = 4 sprites
-;    BNE LoadPalettesLoop 	    ; Branch to LOAD_PALETTES_LOOP if compare was Not Equal to zero
-                               
-;LoadSprites
-;    LDX #$00
-;LoadSpritesLoop
-;    LDA Sprites, x        	    ; Load data from address (sprites +  x)
-;    STA $0200, x          	    ; Store into RAM address ($0200 + x)
-;    INX                   	       
-;    CPX #$20              	    ; Load 2 sprites
-;    BNE LoadSpritesLoop  	       
+    LDX #$00
+LoadPaletteLoop:
+    LDA Palette,X                   
+    STA $2007
+    INX
+    CPX #$10                       ; Palette for 4 sprites
+    BNE LoadPaletteLoop
 
 LoadBackground
-    LDA $2002                       ; Read PPU status, reset high/low latch
+    LDA $2002                      ; Read PPU status, reset high/low latch
     LDA #$20
-    STA $2006                       ; Write high byte
+    STA $2006                      ; Write high byte
     LDA #$00
-    STA $2006                       ; Write low byte
+    STA $2006                      ; Write low byte
 
-    ;LDA (DL Nametable0)             ; Store addresses of nametable labels
-    ;STA $00
-    ;LDA DH Nametable0
-    ;STA $01
+    LDA #<Nametable0               ; Store offset addresses
+    STA $0000
+    LDA #>Nametable0
+    STA $0001
 
-    ;LDA #LOW(Nametable1)
-    ;STA $02
-    ;LDA #HIGH(Nametable1)
-    ;STA $03
+    LDA #<Nametable1
+    STA $0002
+    LDA #>Nametable1
+    STA $0003
 
-    ;LDA #LOW(Nametable2)
-    ;STA $04
-    ;LDA #HIGH(Nametable2)
-    ;STA $05
+    LDA #<Nametable2
+    STA $0004
+    LDA #>Nametable2
+    STA $0005
 
-    ;LDA #LOW(Nametable3)
-    ;STA $06
-    ;LDA #HIGH(Nametable3)
-    ;STA $07
+    LDA #<Nametable3
+    STA $0006
+    LDA #>Nametable3
+    STA $0007
+
+    LDA #$00                       ; Set tile loop boundary
+    STA $0008
 
     LDX #$00
     LDY #$00
@@ -143,85 +124,27 @@ LoadBackgroundLoop
     LDA ($00),Y
     STA $2007
     INY
-    CPY #$00
+    CPY $0008
     BNE LoadBackgroundLoop
-    INX                             ; Get new offset
+    CPX #$6                         ; Check if this is the last iteration
+    BEQ LoadBackgroundDone
+    INX                             
     INX
-    LDA $00,X
-    STA $00
+    LDA $00,X                       ; Get new offset address
+    STA $00                         ; Overwrite address used in loop
     INX
     LDA $00,X
     STA $01
-    CPX #$9                         ; 3 increments of X per loop
+    DEX
+    CPX #$6                         ; 3 increments of X per loop
     BNE LoadBackgroundLoop
+    LDA #$C0
+    STA $0008                       ; Set the boundary to 192 tiles more
+    JMP LoadBackgroundLoop
+LoadBackgroundDone
 
-;LoadBackgroundLoop
-;    LDA ($00),Y
-;    STA $05
-;    ;STA $2007
-    ;INY
-    ;CPY #$00                        ; Load 256 tiles
-    ;BNE LoadBackgroundLoop
 
-    ;LDA Nametable1
-    ;STA $0000
-    ;LDA Nametable2
-    ;STA $0000
-    ;LDA Nametable3
-    ;STA $0000
-
-    ;LDX #$00 ; Set X for loop
-    ;LDY #$00 ; Set Y for loop
-;LoadBackgroundLoop0
-    ;LDA Nametable0, x
-    ;LDA $2000, x
-    ;STA $2007
-    ;INX
-    ;CPX #$00 ; 256 tiles
-    ;BNE LoadBackgroundLoop0
-
-    ;LDX #$00 ; Set X for loop
-    ;LDY #$00 ; Set Y for loop
-;LoadBackgroundLoop1
-;    LDA Nametable1, x
-;    STA $2007
-;    INX
-;    CPX #$00 ; 256 tiles
-;    BNE LoadBackgroundLoop1
-
-;    LDX #$00 ; Set X for loop
-;    LDY #$00 ; Set Y for loop
-;LoadBackgroundLoop2
-;    LDA Nametable2, x
-;    STA $2007
-;    INX
-;    CPX #$00 ; 256 tiles
-;    BNE LoadBackgroundLoop2
-
-;    LDX #$00 ; Set X for loop
-;    LDY #$00 ; Set Y for loop
-;LoadBackgroundLoop3
-;    LDA Nametable3, x
-;    STA $2007
-;    INX
-;    CPX #$C0 ; 192 tiles
-;    BNE LoadBackgroundLoop3
-
-; Something fishy about the attributes, better review
-;LoadAttributes
-;    LDA $2002                       ; read PPU status to reset the high/low latch
-;    LDA #$23
-;    STA $2006                       ; write the high byte of $23C0 address
-;    LDA #$C0
-;    STA $2006                       ; write the low byte of $23C0 address
-;    LDX #$00                        ; start out at 0
-;LoadAttributesLoop
-;    LDA Attributes, x               ; load data from address (attribute + the value in x)
-;    STA $2007                       ; write to PPU
-;    INX                             ; X = X + 1
-;    CPX #$03                        ; Compare X to hex $08, decimal 8 - copying 8 bytes
-;    BNE LoadAttributesLoop
-
+PPUCleanUp:
     LDA #%10010000                  ; Enable NMI, sprites from PT1
     STA $2000
     LDA #%00011110                  ; Enable sprites, background, disable clipping left
@@ -230,58 +153,11 @@ LoadBackgroundLoop
     STA $2005                       ; Disable scrolling
     STA $2005
 
+    RTI
 
-;********************************
-; Logic
-;********************************
-
-NonMaskableInterrupt
-    LDA #$00
-    STA $2003       	           ; Set the low byte (00) of the RAM address
-    LDA #$02
-    STA $4014       	           ; Set the high byte (02) of the RAM address, start the transfer
-
-                                   ; Clean up PPU
-    LDA #%10010000                 ; Enable NMI, sprites from PT0, background from PT1
-    STA $2000
-    LDA #%00011110                 ; Enable sprites, background, no clipping left
-    STA $2001
-    LDA #$00                       ; No background scrolling
-    STA $2005
-    STA $2005
-
-InterruptRequest
-    ; Nothing yet
-
-
-;********************************
-; Vectors
-;********************************
-
-    .org $FFFA     		           ; First of the three vectors starts here
-    .dw NonMaskableInterrupt       ; When an NMI happens (once per frame if enabled) the 
-                                   ; Processor will jump to the label NMI:
-    .dw Reset      		           ; When the processor first turns on or is reset, it will jump
-                                   ; To the label RESET:
-    .dw InterruptRequest           ; Not really used at present
-
-
-;********************************
-; Assets
-;********************************
-
-    ;.org $E000
-
-Palette
-    .db $22,$29,$1A,$0F,  $22,$36,$17,$0F,  $22,$30,$21,$0F,  $22,$27,$17,$0F   ; Background
-    .db $22,$1C,$15,$14,  $22,$02,$38,$3C,  $22,$1C,$15,$14,  $22,$02,$38,$3C   ; Sprites
-
-Sprites
-                                      ; Vert tile attr horiz
-    ;.db $00, $02, $00, $80           ; Sprite 0
-    ;.db $00, $03, $00, $88           ; Sprite 1
-    ;.db $08, $12, $08, $80           ; Sprite 2
-    ;.db $08, $13, $08, $88           ; Sprite 3
+Palette:
+    .db $22,$29,$1A,$0F,  $22,$36,$17,$0F,  $22,$30,$21,$0F,  $22,$27,$17,$0F   ;;background palette
+    .db $22,$1C,$15,$14,  $22,$02,$38,$3C,  $22,$1C,$15,$14,  $22,$02,$38,$3C   ;;sprite palette
 
 Nametable0
     .db $47,$20,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;row 1
@@ -377,8 +253,47 @@ Nametable3
     .db $24,$24,$24,$24,$47,$47,$24,$24,$47,$47,$47,$47,$47,$47,$24,$24  ;;row 4
     .db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$55,$56,$24,$24  ;;brick bottoms
 
-Attributes
-    .db %00000000, %00010000, %0010000, %00010000, %00000000, %00000000, %00000000, %00110000
-    .db $24,$24,$24,$24, $47,$47,$24,$24 ,$47,$47,$47,$47, $47,$47,$24,$24 ,$24,$24,$24,$24 ,$24,$24,$24,$24, $24,$24,$24,$24, $55,$56,$24,$24
+
+;********************************
+; Logic
+;********************************
+
+NonMaskableInterrupt
+    LDA #$00
+    STA $2003       	           ; Set the low byte (00) of the RAM address
+    LDA #$02
+    STA $4014       	           ; Set the high byte (02) of the RAM address, start the transfer
+
+                                   ; Clean up PPU
+    LDA #%10010000                 ; Enable NMI, sprites from PT0, background from PT1
+    STA $2000
+    LDA #%00011110                 ; Enable sprites, background, no clipping left
+    STA $2001
+    LDA #$00                       ; No background scrolling
+    STA $2005
+    STA $2005
+
+;    LDX #$00
+;    LDA #$23
+;TestLoop
+;    STA $2007
+;    INX
+;    CPX #$00
+;    BNE TestLoop
+
+InterruptRequest
+    ; Nothing yet
+
+
+;********************************
+; Vectors
+;********************************
+
+    .pad $FFFA     		           ; First of the three vectors starts here
+    .dw NonMaskableInterrupt       ; When an NMI happens (once per frame if enabled) the 
+                                   ; Processor will jump to the label NMI:
+    .dw Reset      		           ; When the processor first turns on or is reset, it will jump
+                                   ; To the label RESET:
+    .dw InterruptRequest           ; Not really used at present
 
     .incbin "mario.chr"            ; Includes 8KB graphics file
