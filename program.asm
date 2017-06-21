@@ -73,7 +73,7 @@ ClearMemory
 
     JSR AwaitVerticalBlank         ; Second wait
 
-LoadPalette:
+LoadPalettes:
     LDA $2002                      ; Read PPU status to reset high/low latch
     LDA #$3F
     STA $2006                      ; Write high byte
@@ -81,12 +81,12 @@ LoadPalette:
     STA $2006                      ; Write low byte
 
     LDX #$00
-LoadPaletteLoop:
-    LDA Palette,X                   
+LoadPalettesLoop:
+    LDA Palettes,X                   
     STA $2007
     INX
     CPX #$10                       ; Palette for 4 sprites
-    BNE LoadPaletteLoop
+    BNE LoadPalettesLoop
 
 LoadBackground
     LDA $2002                      ; Read PPU status, reset high/low latch
@@ -95,9 +95,9 @@ LoadBackground
     LDA #$00
     STA $2006                      ; Write low byte
 
-    LDA #<Nametable0               ; Store offset addresses
+    LDA #<Nametable               ; Store offset addresses
     STA $0000
-    LDA #>Nametable0
+    LDA #>Nametable
     STA $0001
 
 ;    LDA #<Nametable1
@@ -127,23 +127,21 @@ LoadBackgroundLoop
     CPY $0008
     BNE LoadBackgroundLoop
     ;CPX #$6                         ; Check if this is the last iteration
-    CPX #$2
-    BEQ LoadBackgroundDone
-    INX                             
-    INX
-    LDA $00,X                       ; Get new offset address
-    STA $00                         ; Overwrite address used in loop
-    INX
-    LDA $00,X
-    STA $01
-    DEX
+    ;BEQ LoadBackgroundDone
+    ;INX                             
+    ;INX
+    ;LDA $00,X                       ; Get new offset address
+    ;STA $00                         ; Overwrite address used in loop
+    ;INX
+    ;LDA $00,X
+    ;STA $01
+    ;DEX
     ;CPX #$6                         ; 3 increments of X per loop
-    BNE LoadBackgroundLoop
-    LDA #$C0
-    STA $0008                       ; Set the boundary to 192 tiles more
-    JMP LoadBackgroundLoop
+    ;BNE LoadBackgroundLoop
+    ;LDA #$C0
+    ;STA $0008                       ; Set the boundary to 192 tiles more
+    ;JMP LoadBackgroundLoop
 LoadBackgroundDone
-
 
 PPUCleanUp:
     LDA #%10010000                  ; Enable NMI, sprites from PT1
@@ -156,11 +154,11 @@ PPUCleanUp:
 
     RTI
 
-Palette:
+Palettes:
     .db $22,$29,$1A,$0F,  $22,$36,$17,$0F,  $22,$30,$21,$0F,  $22,$27,$17,$0F   ;;background palette
     .db $22,$1C,$15,$14,  $22,$02,$38,$3C,  $22,$1C,$15,$14,  $22,$02,$38,$3C   ;;sprite palette
 
-Nametable0
+Nametable
     .incbin "map.nam"
     ;.db $47,$20,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;row 1
     ;.db $24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24,$24  ;;all sky
