@@ -148,7 +148,7 @@ PPUCleanUp:
     RTI
 
 Palettes:
-    .db $00,$01,$02,$03,  $00,$01,$02,$03,  $00,$01,$02,$03,  $00,$01,$02,$03   ;;background palette
+    .db $00,$30,$06,$17,  $00,$30,$06,$17,  $00,$30,$06,$17,  $00,$30,$06,$17   ;;background palette
     .db $22,$1C,$15,$14,  $22,$02,$38,$3C,  $22,$1C,$15,$14,  $22,$02,$38,$3C   ;;sprite palette
 
 Nametable
@@ -201,4 +201,4 @@ InterruptRequest
                                    ; To the label RESET:
     .dw InterruptRequest           ; Not really used at present
 
-    .incbin "test.chr"            ; Includes 8KB graphics file
+    .incbin "mario.chr"            ; Includes 8KB graphics file
