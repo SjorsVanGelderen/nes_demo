@@ -57,17 +57,17 @@ AwaitVerticalBlankDone
 
 ClearMemory
     LDA #$00
-    STA $0000, x
-    STA $0100, x
-    ;STA $0200, x
-    STA $0300, x
-    STA $0400, x
-    STA $0500, x
-    STA $0600, x
-    STA $0700, x
-    LDA #$FE
-    STA $0200, x
-    ;STA $0300, x                  
+    STA $0000,X
+    STA $0100,X
+    ;STA $0200,X
+    STA $0300,X
+    STA $0400,X
+    STA $0500,X
+    STA $0600,X
+    STA $0700,X
+    LDA #$FE                       ; Better check what this value is
+    STA $0200,X
+    ;STA $0300,X                  
     INX
     BNE ClearMemory
 
@@ -85,7 +85,7 @@ LoadPalettesLoop:
     LDA Palettes,X                   
     STA $2007
     INX
-    CPX #$10                       ; Palette for 4 sprites
+    CPX #$20                       
     BNE LoadPalettesLoop
 
 LoadBackground
@@ -121,43 +121,69 @@ LoadBackgroundLoop
     JMP LoadBackgroundLoop
 LoadBackgroundDone
 
-LoadAttributes:
-    LDA $2002                      ; Read PPU status, reset high/low latch
-    LDA #$23
-    STA $2006                      ; Write high byte
-    LDA #$C0
-    STA $2006                      ; Write low byte
+;LoadAttributes:
+;    LDA $2002                      ; Read PPU status, reset high/low latch
+;    LDA #$23
+;    STA $2006                      ; Write high byte
+;    LDA #$C0
+;    STA $2006                      ; Write low byte
 
-    LDX #$00
-LoadAttributesLoop:
-    LDA Attributes,X               
-    STA $2007
-    INX
-    CPX #$08
-    BNE LoadAttributesLoop
+;    LDX #$00
+;LoadAttributesLoop:
+;    LDA Attributes,X               
+;    STA $2007
+;    INX
+;    CPX #$08
+;    BNE LoadAttributesLoop
+
+;LoadSprites
+;    LDA #$80
+;    STA $0200                      ; Set Y
+;    LDA #$80
+;    STA $0203                      ; Set X
+;    LDA #$03
+;    STA $0201                      ; Tile 0
+;    STA $0202                      ; Color palette 0, no flipping
+
+;    LDA #$80
+;    STA $0204                      ; Set Y
+;    LDA #$88
+;    STA $0207                      ; Set X
+;    LDA #$01
+;    STA $0205                      ; Tile 1
+;    LDA #$00
+;    STA $0206                      ; Color palette 0, no flipping
+
+;    LDA #$88
+;    LDA #$00
+;    STA $0208                      ; Set Y
+;    LDA #$80
+;    STA $020B                      ; Set X
+;    LDA #$10
+;    STA $0209                      ; Tile 2
+;    LDA #$00
+;    STA $020A                      ; Color palette 0, no flipping
+
+;    LDA #$10
+;    STA $020C                      ; Set Y
+;    LDA #$88
+;    STA $020F                      ; Set X
+;    LDA #$11
+;    STA $0209                      ; Tile 4
+;    LDA #$00
+;    STA $020E                      ; Color palette 0, no flipping
+
+;LoadSpritesLoop   
+;    BNE LoadSpritesLoop
 
 PPUCleanUp:
-    LDA #%10010000                  ; Enable NMI, sprites from PT1
+    LDA #%10010000                 ; Enable NMI, sprites from pattern table 0
     STA $2000
-    LDA #%00011110                  ; Enable sprites, background, disable clipping left
+    LDA #%00011110                 ; Enable sprites, background, disable clipping left
     STA $2001
     LDA #$00
-    STA $2005                       ; Disable scrolling
+    STA $2005                      ; Disable scrolling
     STA $2005
-
-    RTI
-
-Palettes:
-    .db $00,$30,$06,$17,  $00,$30,$06,$17,  $00,$30,$06,$17,  $00,$30,$06,$17   ;;background palette
-    .db $22,$1C,$15,$14,  $22,$02,$38,$3C,  $22,$1C,$15,$14,  $22,$02,$38,$3C   ;;sprite palette
-
-Nametable
-    .incbin "map.nam"
-
-Attributes:
-    .db %00000000, %00010000, %01010000, %00010000, %00000000, %00000000, %00000000, %00110000
-
-  ;.db $24,$24,$24,$24, $47,$47,$24,$24 ,$47,$47,$47,$47, $47,$47,$24,$24 ,$24,$24,$24,$24 ,$24,$24,$24,$24, $24,$24,$24,$24, $55,$56,$24,$24  ;;brick bottoms
 
 ;********************************
 ; Logic
@@ -170,7 +196,7 @@ NonMaskableInterrupt
     STA $4014       	           ; Set the high byte (02) of the RAM address, start the transfer
 
                                    ; Clean up PPU
-    LDA #%10010000                 ; Enable NMI, sprites from PT0, background from PT1
+    LDA #%10010000                 ; Enable NMI, sprites from pattern table 0, background from pattern table 1
     STA $2000
     LDA #%00011110                 ; Enable sprites, background, no clipping left
     STA $2001
@@ -178,16 +204,25 @@ NonMaskableInterrupt
     STA $2005
     STA $2005
 
-;    LDX #$00
-;    LDA #$23
-;TestLoop
-;    STA $2007
-;    INX
-;    CPX #$00
-;    BNE TestLoop
-
 InterruptRequest
     ; Nothing yet
+
+    RTI
+
+
+;********************************
+; Data
+;********************************
+
+Palettes
+    .incbin "palette.pal"
+
+Nametable
+    .incbin "nametable.nam"
+
+Attributes
+    .db %00000000, %01010101, %10101010, %11111111, %00000000, %00000000, %00000000, %00000000
+;    .db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
 
 
 ;********************************
@@ -201,4 +236,4 @@ InterruptRequest
                                    ; To the label RESET:
     .dw InterruptRequest           ; Not really used at present
 
-    .incbin "mario.chr"            ; Includes 8KB graphics file
+    .incbin "graphics.chr"            ; Includes 8KB graphics file
