@@ -88,6 +88,7 @@ LoadPalettesLoop:
     CPX #$20                       
     BNE LoadPalettesLoop
 
+; CANNOT BE DONE IN ONE NMI, SPLIT UP!!!!
 LoadBackground
     LDA $2002                      ; Read PPU status, reset high/low latch
     LDA #$20
@@ -105,21 +106,21 @@ LoadBackground
     LDA #$00                       
     STA $0008                      ; Set tile loop boundary
 LoadBackgroundLoop
-    CPX #$04                       ; Check for last iteration
-    BEQ LoadBackgroundDone
+    ;CPX #$04                       ; Check for last iteration
+    ;BEQ LoadBackgroundDone
     LDA ($00),Y
     STA $2007
     INY
     CPY $0008                      ; Compare to loop boundary
     BNE LoadBackgroundLoop
-    INC $01                        ; Set the new offset address
-    INX
-    CPX #$03
-    BNE LoadBackgroundLoop
-    LDA #$C0
-    STA $0008                      ; Set the boundary to 192 tiles more
-    JMP LoadBackgroundLoop
-LoadBackgroundDone
+;    INC $01                        ; Set the new offset address
+;    INX
+;    CPX #$03
+;    BNE LoadBackgroundLoop
+;    LDA #$C0
+;    STA $0008                      ; Set the boundary to 192 tiles more
+;    JMP LoadBackgroundLoop
+;LoadBackgroundDone
 
 ;LoadAttributes:
 ;    LDA $2002                      ; Read PPU status, reset high/low latch
