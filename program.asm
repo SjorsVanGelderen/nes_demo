@@ -15,9 +15,8 @@
 ; Variables
 ;********************************
 
-    .enum $0010
+    .enum $0000
 bg_offset   .dsb 2
-bg_phase    .dsb 1
 bg_boundary .dsb 1
 player_vx   .dsb 1
 player_vy   .dsb 1
@@ -110,7 +109,6 @@ LoadBackground
     LDY #$00
     LDX #$00
     LDA #$00
-    STA bg_phase                   ; Set to iteration 0
     STA bg_boundary                ; Set initial tile loading boundary
 
     LDA $2002                      ; Read PPU status, reset high/low latch
@@ -120,24 +118,18 @@ LoadBackground
     STA $2006                      ; Write low byte
 
 LoadBackgroundLoop
-    CPX #$03                       ; Check for last phase
-    BEQ LoadBackgroundDone
-
-    LDA bg_offset                  ; Push the current tile
+    LDA (bg_offset),Y              ; Push the current tile
     STA $2007
 
-    INC bg_offset                  ; Increment the low byte of the nametable offset
-    LDA #<bg_offset
-    CMP #$00
-    BNE AfterIncrement
-    INC bg_offset+1                ; Increment the high byte of the nametable offset
-
-AfterIncrement
     INY                            
     CPY bg_boundary                ; Check if the phase is done
     BNE LoadBackgroundLoop
 
-    INC bg_phase
+    CPX #$03                       ; Check for last phase
+    BEQ LoadBackgroundDone
+
+    INC bg_offset+1                ; Increment high byte of offset
+
     CPX #$02                       ; Check if this is the last iteration
     INX
     BNE LoadBackgroundLoop
@@ -211,9 +203,7 @@ LoadSprites
 LoadSpritesDone
 
 
-    LDA #$00                       
-    STA bg_phase                   ; Set background drawing phase
-    STA bg_boundary                ; Set tile drawing boundary
+    LDA #$00
     STA player_vx                  ; Set horizontal player velocity
     STA player_vx                  ; Set vertical player velocity
 
@@ -238,6 +228,12 @@ NMI
     STA $2003       	           ; Set the low byte (00) of the RAM address
     LDA #$02
     STA $4014       	           ; Set the high byte (02) of the RAM address, start the transfer
+
+    LDA #$00
+    STA $2005
+    INC $0010
+    LDA $0010
+    STA $2005
 
     ; GAME ENGINE LOGIC HERE
     JSR LoadSprites                ; Could certainly be improved
