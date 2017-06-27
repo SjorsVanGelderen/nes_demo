@@ -20,6 +20,10 @@ bg_offset   .dsb 2
 bg_boundary .dsb 1
 player_vx   .dsb 1
 player_vy   .dsb 1
+frame       .dsb 1
+count       .dsb 1
+direction   .dsb 1
+dirty       .dsb 1
     .ende
 
 
@@ -100,10 +104,12 @@ LoadPalettesLoop:
     BNE LoadPalettesLoop
 
 
-LoadBackground
-    LDA #<Nametable                ; Store nametable address
+; TODO - Combine these two loops
+
+LoadBackground_0
+    LDA #<Nametable_0              ; Store nametable address
     STA bg_offset
-    LDA #>Nametable
+    LDA #>Nametable_0
     STA bg_offset+1
 
     LDY #$00
@@ -117,28 +123,68 @@ LoadBackground
     LDA #$00
     STA $2006                      ; Write low byte
 
-LoadBackgroundLoop
+LoadBackgroundLoop_0
     LDA (bg_offset),Y              ; Push the current tile
     STA $2007
 
     INY                            
     CPY bg_boundary                ; Check if the phase is done
-    BNE LoadBackgroundLoop
+    BNE LoadBackgroundLoop_0
 
     CPX #$03                       ; Check for last phase
-    BEQ LoadBackgroundDone
+    BEQ LoadBackgroundDone_0
 
     INC bg_offset+1                ; Increment high byte of offset
 
     CPX #$02                       ; Check if this is the last iteration
     INX
-    BNE LoadBackgroundLoop
+    BNE LoadBackgroundLoop_0
     LDA #$C0
     STA bg_boundary                ; Set the boundary to 192 tiles more
-    JMP LoadBackgroundLoop
+    JMP LoadBackgroundLoop_0
 
-LoadBackgroundDone
+LoadBackgroundDone_0
 
+
+LoadBackground_1
+    LDA #<Nametable_1              ; Store nametable address
+    STA bg_offset
+    LDA #>Nametable_1
+    STA bg_offset+1
+
+    LDY #$00
+    LDX #$00
+    LDA #$00
+    STA bg_boundary                ; Set initial tile loading boundary
+
+    LDA $2002                      ; Read PPU status, reset high/low latch
+    LDA #$24
+    STA $2006                      ; Write high byte
+    LDA #$00
+    STA $2006                      ; Write low byte
+
+LoadBackgroundLoop_1
+    LDA (bg_offset),Y              ; Push the current tile
+    STA $2007
+
+    INY                            
+    CPY bg_boundary                ; Check if the phase is done
+    BNE LoadBackgroundLoop_1
+
+    CPX #$03                       ; Check for last phase
+    BEQ LoadBackgroundDone_1
+
+    INC bg_offset+1                ; Increment high byte of offset
+
+    CPX #$02                       ; Check if this is the last iteration
+    INX
+    BNE LoadBackgroundLoop_1
+    LDA #$C0
+    STA bg_boundary                ; Set the boundary to 192 tiles more
+    JMP LoadBackgroundLoop_1
+
+LoadBackgroundDone_1
+    
 
 LoadAttributes
     LDA $2002                      ; Read PPU status, reset high/low latch
@@ -203,23 +249,42 @@ LoadSprites
 LoadSpritesDone
 
 
-    LDA #$00
-    STA player_vx                  ; Set horizontal player velocity
-    STA player_vx                  ; Set vertical player velocity
-
-
 PPUCleanUp:
-    LDA #%10010000                 ; Enable NMI, sprites from pattern table 0
+    LDA #%10010100                 ; Enable NMI, sprites from pattern table 0
     STA $2000
     LDA #%00011110                 ; Enable sprites, background, disable clipping left
     STA $2001
     LDA #$00
-    STA $2005                      ; Disable scrolling
+    STA $2005                      ; Reset scrolling
     STA $2005
 
 
 Forever                            ; Wait until NMI occurs
+    LDA count
+    BNE Forever
     INC player_vx
+    INC count
+
+    ;LDA player_vx
+    ;ADC count
+    ;STA player_vx
+    ;LDA dirty
+    ;BNE Forever
+    ;LDA #$00
+    ;STA dirty
+
+    ;LDA count
+    ;CMP #$00
+    ;BNE Forever
+    
+    ;LDA direction
+    ;CMP #$00
+    ;BNE Forever
+    ;INC player_vx
+    ;LDA player_vx
+    ;CMP #$FF
+    ;BNE Forever
+    ;EOR direction
     JMP Forever
 
 
@@ -229,14 +294,47 @@ NMI
     LDA #$02
     STA $4014       	           ; Set the high byte (02) of the RAM address, start the transfer
 
+    ;LDA #<Nametable_1              ; Store nametable address
+    ;STA bg_offset
+    ;LDA #>Nametable_1
+    ;STA bg_offset+1
+
+    ;LDY #$00
+    ;LDX #$00
+    ;LDA #$00
+    ;STA bg_boundary                ; Set initial tile loading boundary
+
+    ;LDA $2002                      ; Read PPU status, reset high/low latch
+    ;LDA #$20
+    ;STA $2006                      ; Write high byte
+    ;LDA #$00
+    ;STA $2006                      ; Write low byte
+
+    ;LDA #$01
+    ;STA dirty
+
+    LDA direction
+    CMP #$00
+    BNE left
+    INC player_vx
+    LDA player_vx
+    CMP #$FF
+    BNE skip
+    INC direction
+    JMP skip
+left
+    DEC player_vx
+    LDA player_vx
+    CMP #$00
+    BNE skip
+    DEC direction
+skip
+    LDA player_vx
+    STA $2005
     LDA #$00
     STA $2005
-    INC $0010
-    LDA $0010
-    STA $2005
 
-    ; GAME ENGINE LOGIC HERE
-    JSR LoadSprites                ; Could certainly be improved
+    ;JSR LoadSprites                ; Could certainly be improved
 
     RTI
 
@@ -253,8 +351,10 @@ Palettes
     .incbin "palette.pal"
 
 
-Nametable
-    .incbin "nametable.nam"
+Nametable_0
+    .incbin "nametable_0.nam"
+Nametable_1
+    .incbin "nametable_1.nam"
 
 
 Attributes
