@@ -260,10 +260,17 @@ PPUCleanUp:
 
 
 Forever                            ; Wait until NMI occurs
-    LDA count
+    LDA frame
     BNE Forever
-    INC player_vx
-    INC count
+    LDA dirty
+    ;CMP #$00
+    BEQ Forever
+    INC player_vy
+    LDA #$00
+    STA dirty
+
+    ;INC player_vx
+    ;INC count
 
     ;LDA player_vx
     ;ADC count
@@ -285,6 +292,7 @@ Forever                            ; Wait until NMI occurs
     ;CMP #$FF
     ;BNE Forever
     ;EOR direction
+
     JMP Forever
 
 
@@ -294,27 +302,13 @@ NMI
     LDA #$02
     STA $4014       	           ; Set the high byte (02) of the RAM address, start the transfer
 
-    ;LDA #<Nametable_1              ; Store nametable address
-    ;STA bg_offset
-    ;LDA #>Nametable_1
-    ;STA bg_offset+1
+    LDA #$01
+    STA dirty
 
-    ;LDY #$00
-    ;LDX #$00
-    ;LDA #$00
-    ;STA bg_boundary                ; Set initial tile loading boundary
-
-    ;LDA $2002                      ; Read PPU status, reset high/low latch
-    ;LDA #$20
-    ;STA $2006                      ; Write high byte
-    ;LDA #$00
-    ;STA $2006                      ; Write low byte
-
-    ;LDA #$01
-    ;STA dirty
+    INC frame
 
     LDA direction
-    CMP #$00
+    ;CMP #$00
     BNE left
     INC player_vx
     LDA player_vx
@@ -324,14 +318,15 @@ NMI
     JMP skip
 left
     DEC player_vx
-    LDA player_vx
-    CMP #$00
+    ;LDA player_vx
+    ;CMP #$00
     BNE skip
     DEC direction
 skip
     LDA player_vx
     STA $2005
-    LDA #$00
+    ;LDA #$00
+    LDA player_vy
     STA $2005
 
     ;JSR LoadSprites                ; Could certainly be improved
