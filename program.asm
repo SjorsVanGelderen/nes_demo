@@ -6,16 +6,16 @@
 ; Constants
 ;********************************
 
-    PRG_COUNT = 1
-    CHR_COUNT = 1
-    MIRRORING = %0001
+	PRG_COUNT = 1
+	CHR_COUNT = 1
+	MIRRORING = %0001
 
 
 ;********************************
 ; Variables
 ;********************************
 
-    .enum $0000
+	.enum $0000
 bg_offset   .dsb 2
 bg_boundary .dsb 1
 player_vx   .dsb 1
@@ -24,18 +24,18 @@ frame       .dsb 1
 count       .dsb 1
 direction   .dsb 1
 dirty       .dsb 1
-    .ende
+	.ende
 
 
 ;********************************
 ; iNES header
 ;********************************
 
-    .db "NES",$1A		           ; ID of the header
-    .db PRG_COUNT		           ; 1 PRG-ROM block
-    .db CHR_COUNT		           ; 1 CHR-ROM block
-    .db $00|MIRRORING              ; Mapper 0 with mirroring
-    .dsb 9,$00                     ; Padding
+	.db "NES",$1A		           ; ID of the header
+	.db PRG_COUNT		           ; 1 PRG-ROM block
+	.db CHR_COUNT		           ; 1 CHR-ROM block
+	.db $00|MIRRORING              ; Mapper 0 with mirroring
+	.dsb 9,$00                     ; Padding
 
 
 ;********************************
@@ -104,86 +104,118 @@ LoadPalettesLoop:
     BNE LoadPalettesLoop
 
 
-; TODO - Combine these two loops
+LoadBackground
+	LDA #<Nametable_0              ; Store nametable address
+	STA bg_offset
+	LDA #>Nametable_0
+	STA bg_offset+1
 
-LoadBackground_0
-    LDA #<Nametable_0              ; Store nametable address
-    STA bg_offset
-    LDA #>Nametable_0
-    STA bg_offset+1
+	LDY #$00
+	LDX #$00		
+	LDA #$00
+	STA bg_boundary                ; Set initial tile loading boundary
 
-    LDY #$00
-    LDX #$00
-    LDA #$00
-    STA bg_boundary                ; Set initial tile loading boundary
+	LDA $2002                      ; Read PPU status, reset high/low latch
+	LDA #$20
+	STA $2006                      ; Write high byte
+	LDA #$00
+	STA $2006                      ; Write low byte
 
-    LDA $2002                      ; Read PPU status, reset high/low latch
-    LDA #$20
-    STA $2006                      ; Write high byte
-    LDA #$00
-    STA $2006                      ; Write low byte
+LoadBackgroundLoop
+	LDA (bg_offset),Y              ; Push the current tile
+	STA $2007
 
-LoadBackgroundLoop_0
-    LDA (bg_offset),Y              ; Push the current tile
-    STA $2007
+	INY                            
+	CPY bg_boundary                ; Check if the phase is done
+	BNE LoadBackgroundLoop
 
-    INY                            
-    CPY bg_boundary                ; Check if the phase is done
-    BNE LoadBackgroundLoop_0
+	CPX #$03
+	BEQ LoadNextNametable
 
-    CPX #$03                       ; Check for last phase
-    BEQ LoadBackgroundDone_0
+	CPX #$06
+	BEQ LoadBackgroundDone
+	
+	INX			; Increment iteration counter
+	INC bg_offset+1         ; Increment high byte of offset
 
-    INC bg_offset+1                ; Increment high byte of offset
+	CPX #$03		; Check if this is the last section
+	BEQ LoadShortBoundary
 
-    CPX #$02                       ; Check if this is the last iteration
-    INX
-    BNE LoadBackgroundLoop_0
-    LDA #$C0
-    STA bg_boundary                ; Set the boundary to 192 tiles more
-    JMP LoadBackgroundLoop_0
+	CPX #$06
+	BEQ LoadShortBoundary
 
-LoadBackgroundDone_0
+	;; CPX #$04
+	;; JMP LoadBackgroundDone
 
+	;; CPX #$04	     ; Check if this is the end of nametable 0
+	;; BEQ LoadNextNametable
+	
+	;; CPX #$05		; Check if this is the last section
+	;; BEQ LoadShortBoundary
 
-LoadBackground_1
-    LDA #<Nametable_1              ; Store nametable address
-    STA bg_offset
-    LDA #>Nametable_1
-    STA bg_offset+1
+	;; CPX #$06
+	;; BNE LoadBackgroundDone 	; Wrap up the drawing phase
+	
+	JMP LoadBackgroundLoop
 
-    LDY #$00
-    LDX #$00
-    LDA #$00
-    STA bg_boundary                ; Set initial tile loading boundary
+LoadNextNametable
+	LDA #<Nametable_1	; Store address of next nametable
+	STA bg_offset
+	LDA #>Nametable_1
+	STA bg_offset+1
 
-    LDA $2002                      ; Read PPU status, reset high/low latch
-    LDA #$24
-    STA $2006                      ; Write high byte
-    LDA #$00
-    STA $2006                      ; Write low byte
+	INX
+	
+	LDY #$00		; Reset registers and boundary
+	LDA #$00
+	STA bg_boundary
+	JMP LoadBackgroundLoop
 
-LoadBackgroundLoop_1
-    LDA (bg_offset),Y              ; Push the current tile
-    STA $2007
+LoadShortBoundary
+	LDA #$C0		; Set the boundary to 192 tiles more
+	STA bg_boundary                
+	JMP LoadBackgroundLoop
+	
+LoadBackgroundDone
 
-    INY                            
-    CPY bg_boundary                ; Check if the phase is done
-    BNE LoadBackgroundLoop_1
+;; LoadBackground_1
+;;     LDA #<Nametable_1              ; Store nametable address
+;;     STA bg_offset
+;;     LDA #>Nametable_1
+;;     STA bg_offset+1
 
-    CPX #$03                       ; Check for last phase
-    BEQ LoadBackgroundDone_1
+;;     LDY #$00
+;;     LDX #$00
+;;     LDA #$00
+;;     STA bg_boundary                ; Set initial tile loading boundary
 
-    INC bg_offset+1                ; Increment high byte of offset
+;;     LDA $2002                      ; Read PPU status, reset high/low latch
+;;     LDA #$24
+;;     STA $2006                      ; Write high byte
+;;     LDA #$00
+;;     STA $2006                      ; Write low byte
 
-    CPX #$02                       ; Check if this is the last iteration
-    INX
-    BNE LoadBackgroundLoop_1
-    LDA #$C0
-    STA bg_boundary                ; Set the boundary to 192 tiles more
-    JMP LoadBackgroundLoop_1
+;; LoadBackgroundLoop_1
+;;     LDA (bg_offset),Y              ; Push the current tile
+;;     STA $2007
 
-LoadBackgroundDone_1
+;;     INY                            
+;;     CPY bg_boundary                ; Check if the phase is done
+;;     BNE LoadBackgroundLoop_1
+
+;;     CPX #$03                       ; Check for last phase
+;;     BEQ LoadBackgroundDone_1
+
+;;     INC bg_offset+1                ; Increment high byte of offset
+
+;;     CPX #$02                       ; Check if this is the last iteration
+;;     INX
+;;     BNE LoadBackgroundLoop_1
+;;     LDA #$C0
+;;     STA bg_boundary                ; Set the boundary to 192 tiles more
+;;     JMP LoadBackgroundLoop_1
+
+;; LoadBackgroundDone_1
     
 
 LoadAttributes
