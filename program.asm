@@ -190,18 +190,18 @@ LoadBackgroundDone
 ;;     BNE LoadAttributesLoop
 
 
-    JMP LoadSpritesDone
+	JMP LoadSpritesDone
 LoadSprites
-    LDA #$80
-    STA $0200                      ; Set Y
-    ;LDA #$80
-    LDA player_vx
-    STA $0203                      ; Set X
-    LDA #$03
-    STA $0201                      ; Tile 0
-    STA $0202                      ; Color palette 0, no flipping
+	LDA #$80
+	STA $0200                      ; Set Y
+				;LDA #$80
+	LDA player_vx
+	STA $0203                      ; Set X
+	LDA #$03
+	STA $0201                      ; Tile 0
+	STA $0202                      ; Color palette 0, no flipping
 
-    RTS
+	RTS
 
 ;    LDA #$80
 ;    STA $0204                      ; Set Y
@@ -238,92 +238,92 @@ LoadSpritesDone
 
 
 PPUCleanUp:
-    LDA #%10010100                 ; Enable NMI, sprites from pattern table 0
-    STA $2000
-    LDA #%00011110                 ; Enable sprites, background, disable clipping left
-    STA $2001
-    LDA #$00
-    STA $2005                      ; Reset scrolling
-    STA $2005
+	LDA #%10010100                 ; Enable NMI, sprites from pattern table 0
+	STA $2000
+	LDA #%00011110                 ; Enable sprites, background, disable clipping left
+	STA $2001
+	LDA #$00
+	STA $2005                      ; Reset scrolling
+	STA $2005
 
 
 Forever                            ; Wait until NMI occurs
-    LDA frame
-    BNE Forever
-    LDA dirty
-    ;CMP #$00
-    BEQ Forever
-    INC player_vy
-    LDA #$00
-    STA dirty
+	LDA frame
+	BNE Forever
+	LDA dirty
+				;CMP #$00
+	BEQ Forever
+	INC player_vy
+	LDA #$00
+	STA dirty
 
-    ;INC player_vx
-    ;INC count
+				;INC player_vx
+				;INC count
 
-    ;LDA player_vx
-    ;ADC count
-    ;STA player_vx
-    ;LDA dirty
-    ;BNE Forever
-    ;LDA #$00
-    ;STA dirty
+				;LDA player_vx
+				;ADC count
+				;STA player_vx
+				;LDA dirty
+				;BNE Forever
+				;LDA #$00
+				;STA dirty
 
-    ;LDA count
-    ;CMP #$00
-    ;BNE Forever
+				;LDA count
+				;CMP #$00
+				;BNE Forever
     
-    ;LDA direction
-    ;CMP #$00
-    ;BNE Forever
-    ;INC player_vx
-    ;LDA player_vx
-    ;CMP #$FF
-    ;BNE Forever
-    ;EOR direction
+				;LDA direction
+				;CMP #$00
+				;BNE Forever
+				;INC player_vx
+				;LDA player_vx
+				;CMP #$FF
+				;BNE Forever
+				;EOR direction
 
-    JMP Forever
+	JMP Forever
 
 
 NMI
-    LDA #$00
-    STA $2003       	           ; Set the low byte (00) of the RAM address
-    LDA #$02
-    STA $4014       	           ; Set the high byte (02) of the RAM address, start the transfer
+	LDA #$00
+	STA $2003       	           ; Set the low byte (00) of the RAM address
+	LDA #$02
+	STA $4014       	           ; Set the high byte (02) of the RAM address, start the transfer
 
-    LDA #$01
-    STA dirty
+	LDA #$01
+	STA dirty
 
-    INC frame
+	INC frame
 
-    LDA direction
-    ;CMP #$00
-    BNE left
-    INC player_vx
-    LDA player_vx
-    CMP #$FF
-    BNE skip
-    INC direction
-    JMP skip
+	LDA direction
+				;CMP #$00
+	BNE left
+	INC player_vx
+	LDA player_vx
+	CMP #$FF
+	BNE skip
+	INC direction
+	JMP skip
 left
-    DEC player_vx
-    ;LDA player_vx
-    ;CMP #$00
-    BNE skip
-    DEC direction
+	DEC player_vx
+				;LDA player_vx
+				;CMP #$00
+	BNE skip
+	DEC direction
 skip
-    LDA player_vx
-    STA $2005
-    ;LDA #$00
-    LDA player_vy
-    STA $2005
+	LDA player_vx
+	STA $2005
+				;LDA #$00
+	LDA player_vy
+	STA $2005
 
-    ;JSR LoadSprites                ; Could certainly be improved
+				;JSR LoadSprites                ; Could certainly be improved
 
-    RTI
+	RTI
 
 
 IRQ
-    RTI
+	RTI
 
 
 ;********************************
@@ -331,33 +331,33 @@ IRQ
 ;********************************
 
 Palettes
-    .incbin "palette.pal"
+	.incbin "palette.pal"
 
 
 Nametable_0
-    .incbin "nametable_0.nam"
+	.incbin "nametable_0.nam"
 Nametable_1
-    .incbin "nametable_1.nam"
+	.incbin "nametable_1.nam"
 
 
 Attributes
-    .db %00000000, %01010101, %10101010, %11111111, %00000000, %00000000, %00000000, %00000000
-    .db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
+	.db %00000000, %01010101, %10101010, %11111111, %00000000, %00000000, %00000000, %00000000
+	.db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
 
 
 ;********************************
 ; Vectors
 ;********************************
 
-    .pad $FFFA     		           ; First of the three vectors starts here
-    .dw NMI                        
-    .dw Reset      		                                    
-    ;.dw IRQ
-    .dw 0                        
+	.pad $FFFA     		           ; First of the three vectors starts here
+	.dw NMI                        
+	.dw Reset      		                                    
+				;.dw IRQ
+	.dw 0                        
 
 
 ;********************************
 ; CHR-ROM bank
 ;********************************
 
-    .incbin "graphics.chr"         ; Includes 8KB graphics file
+	.incbin "graphics.chr"         ; Includes 8KB graphics file
