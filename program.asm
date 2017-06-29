@@ -31,11 +31,11 @@ dirty       .dsb 1
 ; iNES header
 ;********************************
 
-	.db "NES",$1A		           ; ID of the header
-	.db PRG_COUNT		           ; 1 PRG-ROM block
-	.db CHR_COUNT		           ; 1 CHR-ROM block
-	.db $00|MIRRORING              ; Mapper 0 with mirroring
-	.dsb 9,$00                     ; Padding
+	.db "NES",$1A		; ID of the header
+	.db PRG_COUNT		; 1 PRG-ROM block
+	.db CHR_COUNT		; 1 CHR-ROM block
+	.db $00|MIRRORING	; Mapper 0 with mirroring
+	.dsb 9,$00		; Padding
 
 
 ;********************************
@@ -45,16 +45,16 @@ dirty       .dsb 1
 	.base $10000-(PRG_COUNT*$4000)
 
 Reset
-	SEI			                   ; Disable IRQs
-	CLD 		                   ; Disable decimal mode
+	SEI			; Disable IRQs
+	CLD			; Disable decimal mode
 	LDX #$40
-	STX $4017		               ; Disable APU frame IRQ
-	LDX #$FF
-	TXS			                   ; Set up stack
+	STX $4017		; Disable APU frame IRQ
+	LDX #$FF		
+	TXS			; Set up stack
 	INX
-	STA $2000                      ; Disable NMI
-	STX $2001	                   ; Disable rendering
-	STX $4010	                   ; Disable DMC IRQs
+	STA $2000               ; Disable NMI
+	STX $2001		; Disable rendering
+	STX $4010		; Disable DMC IRQs
 
 
 	JMP AwaitVerticalBlankDone
@@ -65,7 +65,7 @@ AwaitVerticalBlank
 AwaitVerticalBlankDone
 
 
-	JSR AwaitVerticalBlank         ; First wait
+	JSR AwaitVerticalBlank	; First wait
 
 
 ClearMemory
@@ -78,22 +78,22 @@ ClearMemory
 	STA $0500,X
 	STA $0600,X
 	STA $0700,X
-	LDA #$FE                       ; Better check what this value is
+	LDA #$FE		; Better check what this value is
 	STA $0200,X
 				;STA $0300,X                  
 	INX
 	BNE ClearMemory
 
 
-	JSR AwaitVerticalBlank         ; Second wait
+	JSR AwaitVerticalBlank	; Second wait
 
 
 LoadPalettes:
-	LDA $2002                      ; Read PPU status to reset high/low latch
+	LDA $2002	        ; Read PPU status to reset high/low latch
 	LDA #$3F
-	STA $2006                      ; Write high byte
+	STA $2006	        ; Write high byte
 	LDA #$00
-	STA $2006                      ; Write low byte
+	STA $2006		; Write low byte
 
 	LDX #$00
 LoadPalettesLoop:
@@ -105,7 +105,7 @@ LoadPalettesLoop:
 
 
 LoadBackground
-	LDA #<Nametable_0              ; Store nametable address
+	LDA #<Nametable_0	; Store nametable address
 	STA bg_offset
 	LDA #>Nametable_0
 	STA bg_offset+1
@@ -113,20 +113,20 @@ LoadBackground
 	LDY #$00
 	LDX #$00		
 	LDA #$00
-	STA bg_boundary                ; Set initial tile loading boundary
+	STA bg_boundary		; Set initial tile loading boundary
 
-	LDA $2002                      ; Read PPU status, reset high/low latch
+	LDA $2002	        ; Read PPU status, reset high/low latch
 	LDA #$20
-	STA $2006                      ; Write high byte
+	STA $2006		; Write high byte
 	LDA #$00
-	STA $2006                      ; Write low byte
+	STA $2006		; Write low byte
 
 LoadBackgroundLoop
-	LDA (bg_offset),Y              ; Push the current tile
+	LDA (bg_offset),Y	; Push the current tile
 	STA $2007
 
 	INY                            
-	CPY bg_boundary                ; Check if the phase is done
+	CPY bg_boundary		; Check if the phase is done
 	BNE LoadBackgroundLoop
 
 	CPX #$03		; Check if the first nametable is done
@@ -158,11 +158,11 @@ LoadNextNametable
 	LDA #$00
 	STA bg_boundary
 
-	LDA $2002                      ; Read PPU status, reset high/low latch
+	LDA $2002	        ; Read PPU status, reset high/low latch
 	LDA #$24
-	STA $2006                      ; Write high byte
+	STA $2006		; Write high byte
 	LDA #$00
-	STA $2006                      ; Write low byte
+	STA $2006		; Write low byte
 	
 	JMP LoadBackgroundLoop
 
@@ -193,13 +193,13 @@ LoadBackgroundDone
 	JMP LoadSpritesDone
 LoadSprites
 	LDA #$80
-	STA $0200                      ; Set Y
+	STA $0200		; Set Y
 				;LDA #$80
 	LDA player_vx
-	STA $0203                      ; Set X
+	STA $0203		; Set X
 	LDA #$03
-	STA $0201                      ; Tile 0
-	STA $0202                      ; Color palette 0, no flipping
+	STA $0201		; Tile 0
+	STA $0202		; Color palette 0, no flipping
 
 	RTS
 
@@ -238,16 +238,16 @@ LoadSpritesDone
 
 
 PPUCleanUp:
-	LDA #%10010100                 ; Enable NMI, sprites from pattern table 0
+	LDA #%10010100	        ; Enable NMI, sprites from pattern table 0
 	STA $2000
-	LDA #%00011110                 ; Enable sprites, background, disable clipping left
+	LDA #%00011110          ; Enable sprites, background, disable clipping left
 	STA $2001
 	LDA #$00
-	STA $2005                      ; Reset scrolling
+	STA $2005		; Reset scrolling
 	STA $2005
 
 
-Forever                            ; Wait until NMI occurs
+Forever				; Wait until NMI occurs
 	LDA frame
 	BNE Forever
 	LDA dirty
@@ -286,9 +286,9 @@ Forever                            ; Wait until NMI occurs
 
 NMI
 	LDA #$00
-	STA $2003       	           ; Set the low byte (00) of the RAM address
+	STA $2003	        ; Set the low byte (00) of the RAM address
 	LDA #$02
-	STA $4014       	           ; Set the high byte (02) of the RAM address, start the transfer
+	STA $4014               ; Set the high byte (02) of the RAM address, start the transfer
 
 	LDA #$01
 	STA dirty
@@ -349,7 +349,7 @@ Attributes
 ; Vectors
 ;********************************
 
-	.pad $FFFA     		           ; First of the three vectors starts here
+	.pad $FFFA	        ; First of the three vectors starts here
 	.dw NMI                        
 	.dw Reset      		                                    
 				;.dw IRQ
@@ -360,4 +360,4 @@ Attributes
 ; CHR-ROM bank
 ;********************************
 
-	.incbin "graphics.chr"         ; Includes 8KB graphics file
+	.incbin "graphics.chr"	; Includes 8KB graphics file
