@@ -42,66 +42,66 @@ dirty       .dsb 1
 ; PRG bank
 ;********************************
     
-    .base $10000-(PRG_COUNT*$4000)
+	.base $10000-(PRG_COUNT*$4000)
 
 Reset
-    SEI			                   ; Disable IRQs
-    CLD 		                   ; Disable decimal mode
-    LDX #$40
-    STX $4017		               ; Disable APU frame IRQ
-    LDX #$FF
-    TXS			                   ; Set up stack
-    INX
-    STA $2000                      ; Disable NMI
-    STX $2001	                   ; Disable rendering
-    STX $4010	                   ; Disable DMC IRQs
+	SEI			                   ; Disable IRQs
+	CLD 		                   ; Disable decimal mode
+	LDX #$40
+	STX $4017		               ; Disable APU frame IRQ
+	LDX #$FF
+	TXS			                   ; Set up stack
+	INX
+	STA $2000                      ; Disable NMI
+	STX $2001	                   ; Disable rendering
+	STX $4010	                   ; Disable DMC IRQs
 
 
-    JMP AwaitVerticalBlankDone
+	JMP AwaitVerticalBlankDone
 AwaitVerticalBlank
-    BIT $2002
-    BPL AwaitVerticalBlank
-    RTS
+	BIT $2002
+	BPL AwaitVerticalBlank
+	RTS
 AwaitVerticalBlankDone
 
 
-    JSR AwaitVerticalBlank         ; First wait
+	JSR AwaitVerticalBlank         ; First wait
 
 
 ClearMemory
-    LDA #$00
-    STA $0000,X
-    STA $0100,X
-    ;STA $0200,X
-    STA $0300,X
-    STA $0400,X
-    STA $0500,X
-    STA $0600,X
-    STA $0700,X
-    LDA #$FE                       ; Better check what this value is
-    STA $0200,X
-    ;STA $0300,X                  
-    INX
-    BNE ClearMemory
+	LDA #$00
+	STA $0000,X
+	STA $0100,X
+				;STA $0200,X
+	STA $0300,X
+	STA $0400,X
+	STA $0500,X
+	STA $0600,X
+	STA $0700,X
+	LDA #$FE                       ; Better check what this value is
+	STA $0200,X
+				;STA $0300,X                  
+	INX
+	BNE ClearMemory
 
 
-    JSR AwaitVerticalBlank         ; Second wait
+	JSR AwaitVerticalBlank         ; Second wait
 
 
 LoadPalettes:
-    LDA $2002                      ; Read PPU status to reset high/low latch
-    LDA #$3F
-    STA $2006                      ; Write high byte
-    LDA #$00
-    STA $2006                      ; Write low byte
+	LDA $2002                      ; Read PPU status to reset high/low latch
+	LDA #$3F
+	STA $2006                      ; Write high byte
+	LDA #$00
+	STA $2006                      ; Write low byte
 
-    LDX #$00
+	LDX #$00
 LoadPalettesLoop:
-    LDA Palettes,X                   
-    STA $2007
-    INX
-    CPX #$20                       
-    BNE LoadPalettesLoop
+	LDA Palettes,X                   
+	STA $2007
+	INX
+	CPX #$20                       
+	BNE LoadPalettesLoop
 
 
 LoadBackground
@@ -129,10 +129,10 @@ LoadBackgroundLoop
 	CPY bg_boundary                ; Check if the phase is done
 	BNE LoadBackgroundLoop
 
-	CPX #$03
+	CPX #$03		; Check if the first nametable is done
 	BEQ LoadNextNametable
 
-	CPX #$06
+	CPX #$07		; Check if the second nametable is done
 	BEQ LoadBackgroundDone
 	
 	INX			; Increment iteration counter
@@ -141,34 +141,29 @@ LoadBackgroundLoop
 	CPX #$03		; Check if this is the last section
 	BEQ LoadShortBoundary
 
-	CPX #$06
+	CPX #$07		; Check if this is the last section
 	BEQ LoadShortBoundary
-
-	;; CPX #$04
-	;; JMP LoadBackgroundDone
-
-	;; CPX #$04	     ; Check if this is the end of nametable 0
-	;; BEQ LoadNextNametable
-	
-	;; CPX #$05		; Check if this is the last section
-	;; BEQ LoadShortBoundary
-
-	;; CPX #$06
-	;; BNE LoadBackgroundDone 	; Wrap up the drawing phase
 	
 	JMP LoadBackgroundLoop
-
+	
 LoadNextNametable
 	LDA #<Nametable_1	; Store address of next nametable
 	STA bg_offset
 	LDA #>Nametable_1
 	STA bg_offset+1
 
-	INX
+	INX			; Account for missed INX
 	
 	LDY #$00		; Reset registers and boundary
 	LDA #$00
 	STA bg_boundary
+
+	LDA $2002                      ; Read PPU status, reset high/low latch
+	LDA #$24
+	STA $2006                      ; Write high byte
+	LDA #$00
+	STA $2006                      ; Write low byte
+	
 	JMP LoadBackgroundLoop
 
 LoadShortBoundary
@@ -177,61 +172,22 @@ LoadShortBoundary
 	JMP LoadBackgroundLoop
 	
 LoadBackgroundDone
-
-;; LoadBackground_1
-;;     LDA #<Nametable_1              ; Store nametable address
-;;     STA bg_offset
-;;     LDA #>Nametable_1
-;;     STA bg_offset+1
-
-;;     LDY #$00
-;;     LDX #$00
-;;     LDA #$00
-;;     STA bg_boundary                ; Set initial tile loading boundary
-
-;;     LDA $2002                      ; Read PPU status, reset high/low latch
-;;     LDA #$24
-;;     STA $2006                      ; Write high byte
-;;     LDA #$00
-;;     STA $2006                      ; Write low byte
-
-;; LoadBackgroundLoop_1
-;;     LDA (bg_offset),Y              ; Push the current tile
-;;     STA $2007
-
-;;     INY                            
-;;     CPY bg_boundary                ; Check if the phase is done
-;;     BNE LoadBackgroundLoop_1
-
-;;     CPX #$03                       ; Check for last phase
-;;     BEQ LoadBackgroundDone_1
-
-;;     INC bg_offset+1                ; Increment high byte of offset
-
-;;     CPX #$02                       ; Check if this is the last iteration
-;;     INX
-;;     BNE LoadBackgroundLoop_1
-;;     LDA #$C0
-;;     STA bg_boundary                ; Set the boundary to 192 tiles more
-;;     JMP LoadBackgroundLoop_1
-
-;; LoadBackgroundDone_1
     
 
-LoadAttributes
-    LDA $2002                      ; Read PPU status, reset high/low latch
-    LDA #$23
-    STA $2006                      ; Write high byte
-    LDA #$C0
-    STA $2006                      ; Write low byte
+;; LoadAttributes
+;;     LDA $2002                      ; Read PPU status, reset high/low latch
+;;     LDA #$23
+;;     STA $2006                      ; Write high byte
+;;     LDA #$C0
+;;     STA $2006                      ; Write low byte
 
-    LDX #$00
-LoadAttributesLoop:
-    LDA Attributes,X               
-    STA $2007
-    INX
-    CPX #$08
-    BNE LoadAttributesLoop
+;;     LDX #$00
+;; LoadAttributesLoop:
+;;     LDA Attributes,X               
+;;     STA $2007
+;;     INX
+;;     CPX #$08
+;;     BNE LoadAttributesLoop
 
 
     JMP LoadSpritesDone
