@@ -16,14 +16,14 @@
 ;********************************
 
 	.enum $0000
-bg_offset   .dsb 2
-bg_boundary .dsb 1
-player_vx   .dsb 1
-player_vy   .dsb 1
-frame       .dsb 1
-count       .dsb 1
-direction   .dsb 1
-dirty       .dsb 1
+bg_offset     .dsb 2
+bg_boundary   .dsb 1
+player_vx     .dsb 1
+player_vy     .dsb 1
+frame         .dsb 1
+count         .dsb 1
+direction     .dsb 1
+dirty         .dsb 1
 	.ende
 
 
@@ -34,7 +34,7 @@ dirty       .dsb 1
 	.db "NES",$1A		; ID of the header
 	.db PRG_COUNT		; 1 PRG-ROM block
 	.db CHR_COUNT		; 1 CHR-ROM block
-	.db $00|MIRRORING	; Mapper 0 with mirroring
+	.db $00|MIRRORING	; Mapper 0 with vertical mirroring
 	.dsb 9,$00		; Padding
 
 
@@ -107,7 +107,7 @@ LoadPalettesLoop:
 	BNE LoadPalettesLoop
 
 
-LoadBackground
+LoadNametables
 	LDA #<Nametable_0	; Store nametable address
 	STA bg_offset
 	LDA #>Nametable_0
@@ -124,19 +124,19 @@ LoadBackground
 	LDA #$00
 	STA $2006		; Write low byte
 
-LoadBackgroundLoop
+LoadNametablesLoop
 	LDA (bg_offset),Y	; Push the current tile
 	STA $2007
 
 	INY                            
 	CPY bg_boundary		; Check if the phase is done
-	BNE LoadBackgroundLoop
+	BNE LoadNametablesLoop
 
 	CPX #$03		; Check if the first nametable is done
 	BEQ LoadNextNametable
 
 	CPX #$07		; Check if the second nametable is done
-	BEQ LoadBackgroundDone
+	BEQ LoadNametablesDone
 	
 	INX			; Increment iteration counter
 	INC bg_offset+1         ; Increment high byte of offset
@@ -147,7 +147,7 @@ LoadBackgroundLoop
 	CPX #$07		; Check if this is the last section
 	BEQ LoadShortBoundary
 	
-	JMP LoadBackgroundLoop
+	JMP LoadNametablesLoop
 	
 LoadNextNametable
 	LDA #<Nametable_1	; Store address of next nametable
@@ -167,14 +167,14 @@ LoadNextNametable
 	LDA #$00
 	STA $2006		; Write low byte
 	
-	JMP LoadBackgroundLoop
+	JMP LoadNametablesLoop
 
 LoadShortBoundary
 	LDA #$C0		; Set the boundary to 192 tiles more
 	STA bg_boundary                
-	JMP LoadBackgroundLoop
+	JMP LoadNametablesLoop
 	
-LoadBackgroundDone
+LoadNametablesDone
     
 
 LoadAttributes
@@ -184,13 +184,29 @@ LoadAttributes
 	LDA #$C0
 	STA $2006		; Write low byte
 	
-	LDX #$00
-LoadAttributesLoop:
-	LDA Attributes,X               
+	LDX #$00		
+LoadAttributesLoop
+	LDA Attributes,X
 	STA $2007
 	INX
-	CPX #$40
-	BNE LoadAttributesLoop
+	
+	CPX #$40		; Check if end of first table was reached
+	BEQ LoadNextAttributes
+	CPX #$80		; Check if end of second table was reached
+	BEQ LoadAttributesDone
+
+	JMP LoadAttributesLoop
+
+LoadNextAttributes
+	LDA $2002		; Reset high/low latch
+	LDA #$27		; Set address of second attribute table
+	STA $2006
+	LDA #$C0
+	STA $2006
+	
+	JMP LoadAttributesLoop
+
+LoadAttributesDone
 
 
 	JMP LoadSpritesDone
@@ -238,7 +254,7 @@ LoadSprites
 ;    BNE LoadSpritesLoop
 
 LoadSpritesDone
-
+	
 
 PPUCleanUp:
 	LDA #%10010100	        ; Enable NMI, sprites from pattern table 0
@@ -262,7 +278,6 @@ Forever				; Wait until NMI occurs
 
 	JMP Forever
 
-
 NMI
 	LDA #$00
 	STA $2003	        ; Set the low byte (00) of the RAM address
@@ -274,34 +289,10 @@ NMI
 
 	INC frame
 
-;; 	LDA direction
-;; 				;CMP #$00
-;; 	BNE left
-;; 	INC player_vx
-;; 	LDA player_vx
-;; 	CMP #$FF
-;; 	BNE skip
-;; 	INC direction
-;; 	JMP skip
-;; left
-;; 	DEC player_vx
-;; 				;LDA player_vx
-;; 				;CMP #$00
-;; 	BNE skip
-;; 	DEC direction
-;; skip
-;; 	LDA player_vx
-;; 	STA $2005
-;; 				;LDA #$00
-;; 	;; LDA player_vy
-;; 	LDA #$00
-;; 	STA $2005
-
-	;; 	JSR LoadSprites		; Could certainly be improved
+	;; JSR LoadSprites		; Could certainly be improved
 
 	INC player_vx
-	;; LDA player_vx
-	LDA #$00
+	LDA player_vx
 	STA $2005
 	LDA #$00
 	STA $2005
@@ -335,6 +326,15 @@ Nametable_1
 
 
 Attributes
+	.db %01010101, %01010101, %01010101, %01010101, %01010101, %01010101, %01010101, %01010101
+	.db %01010101, %01010101, %01010101, %01010101, %01010101, %01010101, %01010101, %01010101
+	.db %11111111, %11111111, %11111111, %11111111, %11111111, %11111111, %11111111, %11111111
+	.db %11111111, %11111111, %11111111, %11111111, %11111111, %11111111, %11111111, %11111111
+	.db %11111111, %11111111, %11111111, %11111111, %11111111, %11111111, %11111111, %11111111
+	.db %11111111, %11111111, %11111111, %11111111, %11111111, %11111111, %11111111, %11111111
+	.db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
+	.db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
+	
 	.db %01010101, %01010101, %01010101, %01010101, %01010101, %01010101, %01010101, %01010101
 	.db %01010101, %01010101, %01010101, %01010101, %01010101, %01010101, %01010101, %01010101
 	.db %11111111, %11111111, %11111111, %11111111, %11111111, %11111111, %11111111, %11111111
