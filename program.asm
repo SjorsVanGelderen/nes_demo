@@ -95,12 +95,15 @@ LoadPalettes:
 	LDA #$00
 	STA $2006		; Write low byte
 
-	LDX #$00
+	LDA #$3C
+	STA $2007
+	
+	LDX #$01
 LoadPalettesLoop:
 	LDA Palettes,X                   
 	STA $2007
 	INX
-	CPX #$20                       
+	CPX #$1F		
 	BNE LoadPalettesLoop
 
 
@@ -180,13 +183,13 @@ LoadAttributes
 	STA $2006	        ; Write high byte
 	LDA #$C0
 	STA $2006		; Write low byte
-
+	
 	LDX #$00
 LoadAttributesLoop:
 	LDA Attributes,X               
 	STA $2007
 	INX
-	CPX #$08
+	CPX #$40
 	BNE LoadAttributesLoop
 
 
@@ -271,29 +274,38 @@ NMI
 
 	INC frame
 
-	LDA direction
-				;CMP #$00
-	BNE left
-	INC player_vx
-	LDA player_vx
-	CMP #$FF
-	BNE skip
-	INC direction
-	JMP skip
-left
-	DEC player_vx
-				;LDA player_vx
-				;CMP #$00
-	BNE skip
-	DEC direction
-skip
-	LDA player_vx
-	STA $2005
-				;LDA #$00
-	LDA player_vy
-	STA $2005
+;; 	LDA direction
+;; 				;CMP #$00
+;; 	BNE left
+;; 	INC player_vx
+;; 	LDA player_vx
+;; 	CMP #$FF
+;; 	BNE skip
+;; 	INC direction
+;; 	JMP skip
+;; left
+;; 	DEC player_vx
+;; 				;LDA player_vx
+;; 				;CMP #$00
+;; 	BNE skip
+;; 	DEC direction
+;; skip
+;; 	LDA player_vx
+;; 	STA $2005
+;; 				;LDA #$00
+;; 	;; LDA player_vy
+;; 	LDA #$00
+;; 	STA $2005
 
-	JSR LoadSprites		; Could certainly be improved
+	;; 	JSR LoadSprites		; Could certainly be improved
+
+	INC player_vx
+	;; LDA player_vx
+	LDA #$00
+	STA $2005
+	LDA #$00
+	STA $2005
+	
 	RTI
 
 
@@ -306,17 +318,30 @@ IRQ
 ;********************************
 
 Palettes
-	.incbin "palette.pal"
+	;; .incbin "palette.pal"
+	.incbin "remco.dat"
 
 
 Nametable_0
-	.incbin "nametable_0.nam"
-Nametable_1			
- 	.incbin "nametable_1.nam"
+	.incbin "remco.nam"
+
+Nametable_1
+	.incbin "remco.nam"
+	
+;; Nametable_0
+;; 	.incbin "nametable_0.nam"
+;; Nametable_1			
+;;  	.incbin "nametable_1.nam"
 
 
 Attributes
-	.db %00000000, %01010101, %10101010, %11111111, %00000000, %00000000, %00000000, %00000000
+	.db %01010101, %01010101, %01010101, %01010101, %01010101, %01010101, %01010101, %01010101
+	.db %01010101, %01010101, %01010101, %01010101, %01010101, %01010101, %01010101, %01010101
+	.db %11111111, %11111111, %11111111, %11111111, %11111111, %11111111, %11111111, %11111111
+	.db %11111111, %11111111, %11111111, %11111111, %11111111, %11111111, %11111111, %11111111
+	.db %11111111, %11111111, %11111111, %11111111, %11111111, %11111111, %11111111, %11111111
+	.db %11111111, %11111111, %11111111, %11111111, %11111111, %11111111, %11111111, %11111111
+	.db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
 	.db %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000, %00000000
 
 
@@ -335,4 +360,4 @@ Attributes
 ; CHR-ROM bank
 ;********************************
 
-	.incbin "graphics.chr"	; Includes 8KB graphics file
+	.incbin "remco.chr"	; Includes 8KB graphics file
