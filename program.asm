@@ -174,20 +174,20 @@ LoadShortBoundary
 LoadBackgroundDone
     
 
-;; LoadAttributes
-;;     LDA $2002                      ; Read PPU status, reset high/low latch
-;;     LDA #$23
-;;     STA $2006                      ; Write high byte
-;;     LDA #$C0
-;;     STA $2006                      ; Write low byte
+LoadAttributes
+	LDA $2002	        ; Read PPU status, reset high/low latch
+	LDA #$23
+	STA $2006	        ; Write high byte
+	LDA #$C0
+	STA $2006		; Write low byte
 
-;;     LDX #$00
-;; LoadAttributesLoop:
-;;     LDA Attributes,X               
-;;     STA $2007
-;;     INX
-;;     CPX #$08
-;;     BNE LoadAttributesLoop
+	LDX #$00
+LoadAttributesLoop:
+	LDA Attributes,X               
+	STA $2007
+	INX
+	CPX #$08
+	BNE LoadAttributesLoop
 
 
 	JMP LoadSpritesDone
@@ -257,30 +257,6 @@ Forever				; Wait until NMI occurs
 	LDA #$00
 	STA dirty
 
-				;INC player_vx
-				;INC count
-
-				;LDA player_vx
-				;ADC count
-				;STA player_vx
-				;LDA dirty
-				;BNE Forever
-				;LDA #$00
-				;STA dirty
-
-				;LDA count
-				;CMP #$00
-				;BNE Forever
-    
-				;LDA direction
-				;CMP #$00
-				;BNE Forever
-				;INC player_vx
-				;LDA player_vx
-				;CMP #$FF
-				;BNE Forever
-				;EOR direction
-
 	JMP Forever
 
 
@@ -317,8 +293,7 @@ skip
 	LDA player_vy
 	STA $2005
 
-				;JSR LoadSprites                ; Could certainly be improved
-
+	JSR LoadSprites		; Could certainly be improved
 	RTI
 
 
@@ -336,8 +311,8 @@ Palettes
 
 Nametable_0
 	.incbin "nametable_0.nam"
-Nametable_1
-	.incbin "nametable_1.nam"
+Nametable_1			
+ 	.incbin "nametable_1.nam"
 
 
 Attributes
