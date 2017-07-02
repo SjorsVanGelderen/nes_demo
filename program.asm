@@ -18,8 +18,16 @@
 	.enum $0000
 bg_offset     .dsb 2
 bg_boundary   .dsb 1
+sprite_x      .dsb 1
+sprite_y      .dsb 1
+sprite        .dsb 1
+sprite_offset .dsb 2
+player_x      .dsb 1
+player_y      .dsb 1
 player_vx     .dsb 1
 player_vy     .dsb 1
+camera_x      .dsb 1
+camera_y      .dsb 1
 frame         .dsb 1
 count         .dsb 1
 direction     .dsb 1
@@ -87,6 +95,16 @@ ClearMemory
 
 	JSR AwaitVerticalBlank	; Second wait
 
+
+InitVariables
+	LDA #$00		; Set initial camera position
+	STA camera_x
+	STA camera_y
+	
+	LDA #$80		; Set initial player position
+	STA player_x
+	STA player_y
+	
 
 LoadPalettes:
 	LDA $2002	        ; Read PPU status to reset high/low latch
@@ -211,48 +229,96 @@ LoadAttributesDone
 
 	JMP LoadSpritesDone
 LoadSprites
-	LDA #$80
-	STA $0200		; Set Y
-				;LDA #$80
-	LDA player_vx
-	STA $0203		; Set X
-	LDA #$03
-	STA $0201		; Tile 0
-	STA $0202		; Color palette 0, no flipping
+	LDA #$00
+	STA $2003	        ; Set the low byte (00) of the RAM address
+	LDA #$02
+	STA $4014               ; Set the high byte (02) of the RAM address, start the transfer
 
+	LDA #$00
+	STA sprite_offset
+	LDA #$02		; Store initial offset
+	STA sprite_offset+1
+	
+	LDA #$08		; Set initial sprite number
+	STA sprite
+	
+	LDA #$00		; Set initial sprite placement offset
+	STA sprite_x
+	STA sprite_y
+	
+	LDX #$00
+	LDY #$00
+	
+LoadSpritesLoop
+	CPX #$00		; Account for scanline
+	LDA player_y
+	BNE scanlineCorrectDone
+scanlineCorrect
+	SBC #$01
+scanlineCorrectDone
+	ADC sprite_y
+	STA (sprite_offset),Y	; Set Y
+
+	INY
+
+	LDA sprite
+	STA (sprite_offset),Y	; Set tile
+
+	INY
+
+	LDA #%00000000
+	STA (sprite_offset),Y	; Color palette 0, no flipping
+
+	INY
+	
+	LDA player_x
+	ADC sprite_x
+	STA (sprite_offset),Y	; Set X
+	
+	INY
+	
+	INX
+	CPX #$04
+	BEQ LoadSpritesReturn
+
+	JMP LoadNextSprite
+
+LoadNextSprite
+	CPX #$01
+	BNE justNextDone
+justNext
+	INC sprite
+	LDA sprite_x
+	ADC #$07
+	STA sprite_x
+	JMP incDone
+justNextDone
+
+	CPX #$02
+	BNE specialNextDone
+specialNext
+	LDA sprite
+	ADC #$10
+	STA sprite
+	
+	LDA sprite_x
+	SBC #$07
+	STA sprite_x
+	
+	LDA sprite_y
+	ADC #$07
+	STA sprite_y
+	JMP incDone
+specialNextDone
+
+	CPX #$03
+	BEQ justNext
+	
+incDone	
+	JMP LoadSpritesLoop
+
+LoadSpritesReturn
 	RTS
-
-;    LDA #$80
-;    STA $0204                      ; Set Y
-;    LDA #$88
-;    STA $0207                      ; Set X
-;    LDA #$01
-;    STA $0205                      ; Tile 1
-;    LDA #$00
-;    STA $0206                      ; Color palette 0, no flipping
-
-;    LDA #$88
-;    LDA #$00
-;    STA $0208                      ; Set Y
-;    LDA #$80
-;    STA $020B                      ; Set X
-;    LDA #$10
-;    STA $0209                      ; Tile 2
-;    LDA #$00
-;    STA $020A                      ; Color palette 0, no flipping
-
-;    LDA #$10
-;    STA $020C                      ; Set Y
-;    LDA #$88
-;    STA $020F                      ; Set X
-;    LDA #$11
-;    STA $0209                      ; Tile 4
-;    LDA #$00
-;    STA $020E                      ; Color palette 0, no flipping
-
-;LoadSpritesLoop   
-;    BNE LoadSpritesLoop
-
 LoadSpritesDone
 	
 
@@ -264,7 +330,7 @@ PPUCleanUp:
 	LDA #$00
 	STA $2005		; Reset scrolling
 	STA $2005
-
+	
 
 Forever				; Wait until NMI occurs
 	LDA frame
@@ -272,29 +338,26 @@ Forever				; Wait until NMI occurs
 	LDA dirty
 				;CMP #$00
 	BEQ Forever
-	INC player_vy
 	LDA #$00
 	STA dirty
 
 	JMP Forever
 
 NMI
-	LDA #$00
-	STA $2003	        ; Set the low byte (00) of the RAM address
-	LDA #$02
-	STA $4014               ; Set the high byte (02) of the RAM address, start the transfer
-
 	LDA #$01
 	STA dirty
 
 	INC frame
 
-	;; JSR LoadSprites		; Could certainly be improved
-
-	INC player_vx
-	LDA player_vx
+	JSR LoadSprites		; Could certainly be improved
+	
+	INC camera_x
+	DEC player_x
+	DEC player_x
+	
+	LDA camera_x
 	STA $2005
-	LDA #$00
+	LDA camera_y
 	STA $2005
 	
 	RTI
