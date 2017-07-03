@@ -21,6 +21,7 @@ bg_boundary   .dsb 1
 sprite_x      .dsb 1
 sprite_y      .dsb 1
 sprite        .dsb 1
+initialSprite .dsb 1
 sprite_offset .dsb 2
 player_x      .dsb 1
 player_y      .dsb 1
@@ -104,6 +105,9 @@ InitVariables
 	LDA #$80		; Set initial player position
 	STA player_x
 	STA player_y
+
+	LDA #$08		; Set initial sprite number
+	STA initialSprite	
 	
 
 LoadPalettes:
@@ -239,7 +243,7 @@ LoadSprites
 	LDA #$02		; Store initial offset
 	STA sprite_offset+1
 	
-	LDA #$08		; Set initial sprite number
+	LDA initialSprite	; Set initial sprite number
 	STA sprite
 	
 	LDA #$00		; Set initial sprite placement offset
@@ -298,7 +302,7 @@ justNextDone
 	BNE specialNextDone
 specialNext
 	LDA sprite
-	ADC #$10
+	ADC #$0E
 	STA sprite
 	
 	LDA sprite_x
@@ -332,16 +336,38 @@ PPUCleanUp:
 	STA $2005
 	
 
-Forever				; Wait until NMI occurs
-	LDA frame
-	BNE Forever
-	LDA dirty
-				;CMP #$00
-	BEQ Forever
-	LDA #$00
-	STA dirty
+Forever				; Wait until NMI occurs	
+	;; LDA dirty
+	;; BEQ Forever
+	
+	;; LDA #$00             ; Clear dirty flag
+	;; STA dirty
 
+	LDA frame
+	CMP #$05
+	BNE Forever
+	LDA #$00
+	STA frame
+	
+	LDA direction
+	BNE left
+	INC initialSprite
+	INC initialSprite
+	LDA initialSprite
+	CMP #$0C
+	BNE Forever
+	INC direction
 	JMP Forever
+left
+	DEC initialSprite
+	DEC initialSprite
+	LDA initialSprite
+	CMP #$08
+	BNE Forever
+	LDA #$00
+	STA direction
+	JMP Forever
+
 
 NMI
 	LDA #$01
@@ -352,8 +378,9 @@ NMI
 	JSR LoadSprites		; Could certainly be improved
 	
 	INC camera_x
-	DEC player_x
-	DEC player_x
+	;; DEC player_x
+	;; DEC player_x
+	
 	
 	LDA camera_x
 	STA $2005
