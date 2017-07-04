@@ -16,23 +16,23 @@
 ;********************************
 
 	.enum $0000
-bg_offset     .dsb 2
-bg_boundary   .dsb 1
-sprite_x      .dsb 1
-sprite_y      .dsb 1
-sprite        .dsb 1
-initialSprite .dsb 1
-sprite_offset .dsb 2
-player_x      .dsb 1
-player_y      .dsb 1
-player_vx     .dsb 1
-player_vy     .dsb 1
-camera_x      .dsb 1
-camera_y      .dsb 1
-frame         .dsb 1
-count         .dsb 1
-direction     .dsb 1
-dirty         .dsb 1
+	bg_offset     .dsb 2
+	bg_boundary   .dsb 1
+	sprite_x      .dsb 1
+	sprite_y      .dsb 1
+	sprite        .dsb 1
+	initialSprite .dsb 1
+	sprite_offset .dsb 2
+	player_x      .dsb 1
+	player_y      .dsb 1
+	player_vx     .dsb 1
+	player_vy     .dsb 1
+	camera_x      .dsb 1
+	camera_y      .dsb 1
+	frame         .dsb 1
+	count         .dsb 1
+	direction     .dsb 1
+	dirty         .dsb 1
 	.ende
 
 
@@ -110,7 +110,7 @@ InitVariables
 	STA initialSprite	
 	
 
-LoadPalettes:
+LoadPalettes
 	LDA $2002	        ; Read PPU status to reset high/low latch
 	LDA #$3F
 	STA $2006	        ; Write high byte
@@ -121,12 +121,12 @@ LoadPalettes:
 	STA $2007
 	
 	LDX #$01
-LoadPalettesLoop:
+-
 	LDA Palettes,X                   
 	STA $2007
 	INX
 	CPX #$1F		
-	BNE LoadPalettesLoop
+	BNE -
 
 
 LoadNametables
@@ -146,13 +146,13 @@ LoadNametables
 	LDA #$00
 	STA $2006		; Write low byte
 
-LoadNametablesLoop
+---
 	LDA (bg_offset),Y	; Push the current tile
 	STA $2007
 
 	INY                            
 	CPY bg_boundary		; Check if the phase is done
-	BNE LoadNametablesLoop
+	BNE ---
 
 	CPX #$03		; Check if the first nametable is done
 	BEQ LoadNextNametable
@@ -169,7 +169,7 @@ LoadNametablesLoop
 	CPX #$07		; Check if this is the last section
 	BEQ LoadShortBoundary
 	
-	JMP LoadNametablesLoop
+	JMP ---
 	
 LoadNextNametable
 	LDA #<Nametable_1	; Store address of next nametable
@@ -189,12 +189,12 @@ LoadNextNametable
 	LDA #$00
 	STA $2006		; Write low byte
 	
-	JMP LoadNametablesLoop
+	JMP ---
 
 LoadShortBoundary
 	LDA #$C0		; Set the boundary to 192 tiles more
 	STA bg_boundary                
-	JMP LoadNametablesLoop
+	JMP ---
 	
 LoadNametablesDone
     
@@ -207,7 +207,7 @@ LoadAttributes
 	STA $2006		; Write low byte
 	
 	LDX #$00		
-LoadAttributesLoop
+-
 	LDA Attributes,X
 	STA $2007
 	INX
@@ -217,7 +217,7 @@ LoadAttributesLoop
 	CPX #$80		; Check if end of second table was reached
 	BEQ LoadAttributesDone
 
-	JMP LoadAttributesLoop
+	JMP -
 
 LoadNextAttributes
 	LDA $2002		; Reset high/low latch
@@ -226,7 +226,7 @@ LoadNextAttributes
 	LDA #$C0
 	STA $2006
 	
-	JMP LoadAttributesLoop
+	JMP -
 
 LoadAttributesDone
 
@@ -253,7 +253,7 @@ LoadSprites
 	LDX #$00
 	LDY #$00
 	
-LoadSpritesLoop
+-
 	CPX #$00		; Account for scanline
 	LDA player_y
 	BNE scanlineCorrectDone
@@ -319,7 +319,7 @@ specialNextDone
 	BEQ justNext
 	
 incDone	
-	JMP LoadSpritesLoop
+	JMP -
 
 LoadSpritesReturn
 	RTS
@@ -375,12 +375,9 @@ NMI
 
 	INC frame
 
-	JSR LoadSprites		; Could certainly be improved
+	JSR LoadSprites
 	
 	INC camera_x
-	;; DEC player_x
-	;; DEC player_x
-	
 	
 	LDA camera_x
 	STA $2005
