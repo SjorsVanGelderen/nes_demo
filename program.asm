@@ -18,21 +18,26 @@
 	.enum $0000
 	bg_offset     .dsb 2
 	bg_boundary   .dsb 1
+
+	anim_address  .dsb 2
+	anim_length   .dsb 1
+	
 	sprite_x      .dsb 1
 	sprite_y      .dsb 1
 	sprite        .dsb 1
-	initialSprite .dsb 1
 	sprite_offset .dsb 2
+	
 	player_x      .dsb 1
 	player_y      .dsb 1
-	player_vx     .dsb 1
-	player_vy     .dsb 1
+	
 	camera_x      .dsb 1
-	camera_y      .dsb 1
+	
 	frame         .dsb 1
 	count         .dsb 1
+	
 	direction     .dsb 1
 	dirty         .dsb 1
+	
 	.ende
 
 
@@ -52,6 +57,9 @@
 ;********************************
     
 	.base $10000-(PRG_COUNT*$4000)
+
+FlowerAnimation
+	.db $08, $0A, $0C, $0A
 
 Reset
 	SEI			; Disable IRQs
@@ -100,14 +108,10 @@ ClearMemory
 InitVariables
 	LDA #$00		; Set initial camera position
 	STA camera_x
-	STA camera_y
 	
 	LDA #$80		; Set initial player position
 	STA player_x
 	STA player_y
-
-	LDA #$08		; Set initial sprite number
-	STA initialSprite	
 	
 
 LoadPalettes
@@ -121,12 +125,12 @@ LoadPalettes
 	STA $2007
 	
 	LDX #$01
--
-	LDA Palettes,X                   
+LoadPalettesLoop
+	LDA Palettes,X             
 	STA $2007
 	INX
 	CPX #$1F		
-	BNE -
+	BNE LoadPalettesLoop
 
 
 LoadNametables
@@ -146,13 +150,13 @@ LoadNametables
 	LDA #$00
 	STA $2006		; Write low byte
 
----
+LoadNametablesLoop
 	LDA (bg_offset),Y	; Push the current tile
 	STA $2007
 
 	INY                            
 	CPY bg_boundary		; Check if the phase is done
-	BNE ---
+	BNE LoadNametablesLoop
 
 	CPX #$03		; Check if the first nametable is done
 	BEQ LoadNextNametable
@@ -169,7 +173,7 @@ LoadNametables
 	CPX #$07		; Check if this is the last section
 	BEQ LoadShortBoundary
 	
-	JMP ---
+	JMP LoadNametablesLoop
 	
 LoadNextNametable
 	LDA #<Nametable_1	; Store address of next nametable
@@ -189,12 +193,12 @@ LoadNextNametable
 	LDA #$00
 	STA $2006		; Write low byte
 	
-	JMP ---
+	JMP LoadNametablesLoop
 
 LoadShortBoundary
 	LDA #$C0		; Set the boundary to 192 tiles more
 	STA bg_boundary                
-	JMP ---
+	JMP LoadNametablesLoop
 	
 LoadNametablesDone
     
@@ -207,7 +211,7 @@ LoadAttributes
 	STA $2006		; Write low byte
 	
 	LDX #$00		
--
+LoadAttributesLoop
 	LDA Attributes,X
 	STA $2007
 	INX
@@ -217,7 +221,7 @@ LoadAttributes
 	CPX #$80		; Check if end of second table was reached
 	BEQ LoadAttributesDone
 
-	JMP -
+	JMP LoadAttributesLoop
 
 LoadNextAttributes
 	LDA $2002		; Reset high/low latch
@@ -226,7 +230,7 @@ LoadNextAttributes
 	LDA #$C0
 	STA $2006
 	
-	JMP -
+	JMP LoadAttributesLoop
 
 LoadAttributesDone
 
@@ -243,9 +247,6 @@ LoadSprites
 	LDA #$02		; Store initial offset
 	STA sprite_offset+1
 	
-	LDA initialSprite	; Set initial sprite number
-	STA sprite
-	
 	LDA #$00		; Set initial sprite placement offset
 	STA sprite_x
 	STA sprite_y
@@ -253,13 +254,12 @@ LoadSprites
 	LDX #$00
 	LDY #$00
 	
--
+LoadSpritesLoop
 	CPX #$00		; Account for scanline
 	LDA player_y
-	BNE scanlineCorrectDone
-scanlineCorrect
-	SBC #$01
-scanlineCorrectDone
+	BNE -
+	SBC #$01		; Scanline correction
+-
 	ADC sprite_y
 	STA (sprite_offset),Y	; Set Y
 
@@ -289,18 +289,17 @@ scanlineCorrectDone
 
 LoadNextSprite
 	CPX #$01
-	BNE justNextDone
-justNext
+	BNE --
+-
 	INC sprite
 	LDA sprite_x
 	ADC #$07
 	STA sprite_x
-	JMP incDone
-justNextDone
+	JMP ++
+--
 
 	CPX #$02
-	BNE specialNextDone
-specialNext
+	BNE +
 	LDA sprite
 	ADC #$0E
 	STA sprite
@@ -312,14 +311,14 @@ specialNext
 	LDA sprite_y
 	ADC #$07
 	STA sprite_y
-	JMP incDone
-specialNextDone
+	JMP ++
++
 
 	CPX #$03
-	BEQ justNext
+	BEQ -
 	
-incDone	
-	JMP -
+++
+	JMP LoadSpritesLoop
 
 LoadSpritesReturn
 	RTS
@@ -343,29 +342,29 @@ Forever				; Wait until NMI occurs
 	;; LDA #$00             ; Clear dirty flag
 	;; STA dirty
 
-	LDA frame
-	CMP #$05
-	BNE Forever
-	LDA #$00
-	STA frame
+	;; LDA frame
+;; 	CMP #$05
+;; 	BNE Forever
+;; 	LDA #$00
+;; 	STA frame
 	
-	LDA direction
-	BNE left
-	INC initialSprite
-	INC initialSprite
-	LDA initialSprite
-	CMP #$0C
-	BNE Forever
-	INC direction
-	JMP Forever
-left
-	DEC initialSprite
-	DEC initialSprite
-	LDA initialSprite
-	CMP #$08
-	BNE Forever
-	LDA #$00
-	STA direction
+;; 	LDA direction
+;; 	BNE left
+;; 	INC initialSprite
+;; 	INC initialSprite
+;; 	LDA initialSprite
+;; 	CMP #$0C
+;; 	BNE Forever
+;; 	INC direction
+;; 	JMP Forever
+;; left
+;; 	DEC initialSprite
+;; 	DEC initialSprite
+;; 	LDA initialSprite
+;; 	CMP #$08
+;; 	BNE Forever
+;; 	LDA #$00
+;; 	STA direction
 	JMP Forever
 
 
@@ -381,7 +380,7 @@ NMI
 	
 	LDA camera_x
 	STA $2005
-	LDA camera_y
+	LDA #$00
 	STA $2005
 	
 	RTI
