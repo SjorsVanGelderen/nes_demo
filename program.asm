@@ -21,11 +21,10 @@
 
 	anim_address  .dsb 2
 	anim_length   .dsb 1
-	
-	sprite_x      .dsb 1
-	sprite_y      .dsb 1
-	sprite        .dsb 1
-	sprite_offset .dsb 2
+
+	sprite_source		.dsb 1
+	sprite_source_offset	.dsb 2
+	sprite_target		.dsb 2
 	
 	player_x      .dsb 1
 	player_y      .dsb 1
@@ -242,42 +241,42 @@ LoadSprites
 	LDA #$02
 	STA $4014               ; Set the high byte (02) of the RAM address, start the transfer
 
-	LDA #$00
-	STA sprite_offset
-	LDA #$02		; Store initial offset
-	STA sprite_offset+1
+	LDA #$00 		; Store initial source offset DO SOMETHING WITH THIS WRONG VARIABLE NAME
+	STA sprite_source_offset
+	LDA #$02		
+	STA sprite_source_offset+1
 	
-	LDA #$00		; Set initial sprite placement offset
-	STA sprite_x
-	STA sprite_y
+	LDA #$00		; Set initial placement position
+	STA sprite_target
+	STA sprite_target+1
 	
 	LDX #$00
 	LDY #$00
 	
 LoadSpritesLoop
 	CPX #$00		; Account for scanline
-	LDA player_y
+	LDA sprite_target+1
 	BNE -
 	SBC #$01		; Scanline correction
 -
-	ADC sprite_y
-	STA (sprite_offset),Y	; Set Y
+	ADC sprite_offset+1
+	STA (sprite_source_offset),Y	; Set Y
 
 	INY
 
-	LDA sprite
-	STA (sprite_offset),Y	; Set tile
+	LDA sprite_source
+	STA (sprite_source_offset),Y	; Set tile
 
 	INY
 
 	LDA #%00000000
-	STA (sprite_offset),Y	; Color palette 0, no flipping
+	STA (sprite_source_offset),Y	; Color palette 0, no flipping
 
 	INY
 	
-	LDA player_x
-	ADC sprite_x
-	STA (sprite_offset),Y	; Set X
+	LDA sprite_target
+	ADC sprite_source_offset
+	STA (sprite_source_offset),Y	; Set X
 	
 	INY
 	
@@ -291,26 +290,26 @@ LoadNextSprite
 	CPX #$01
 	BNE --
 -
-	INC sprite
-	LDA sprite_x
+	INC sprite_source
+	LDA sprite_target
 	ADC #$07
-	STA sprite_x
+	STA sprite_target
 	JMP ++
 --
 
 	CPX #$02
 	BNE +
-	LDA sprite
+	LDA sprite_source
 	ADC #$0E
-	STA sprite
+	STA sprite_source
 	
-	LDA sprite_x
+	LDA sprite_target
 	SBC #$07
-	STA sprite_x
+	STA sprite_target
 	
-	LDA sprite_y
+	LDA sprite_target+1
 	ADC #$07
-	STA sprite_y
+	STA sprite_target+1
 	JMP ++
 +
 
