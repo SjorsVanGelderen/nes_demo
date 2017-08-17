@@ -9,36 +9,7 @@
 	PRG_COUNT = 1
 	CHR_COUNT = 1
 	MIRRORING = %0001
-
-
-;********************************
-; Variables
-;********************************
-
-	.enum $0000
-	bg_offset     .dsb 2
-	bg_boundary   .dsb 1
-
-	anim_address  .dsb 2
-	anim_length   .dsb 1
-
-	sprite_source		.dsb 1
-	sprite_source_offset	.dsb 2
-	sprite_target		.dsb 2
 	
-	player_x      .dsb 1
-	player_y      .dsb 1
-	
-	camera_x      .dsb 1
-	
-	frame         .dsb 1
-	count         .dsb 1
-	
-	direction     .dsb 1
-	dirty         .dsb 1
-	
-	.ende
-
 
 ;********************************
 ; iNES header
@@ -57,9 +28,39 @@
     
 	.base $10000-(PRG_COUNT*$4000)
 
-FlowerAnimation
-	.db $08, $0A, $0C, $0A
+	
+;********************************
+; Variables
+;********************************
 
+	.enum $0000
+
+;;; Background
+	bg_offset     .dsb 2
+	bg_boundary   .dsb 1
+
+;;; Animations
+	anim_address  .dsb 2
+	anim_length   .dsb 1
+
+;;; Sprites
+	sprite_big              .dsb 1 ; Whether or not the sprite is big (2x2 as opposed to 1x1)
+	sprite_source		.dsb 1 ; Number of sprite to render
+	sprite_data_offset	.dsb 1 ; Determines which byte of the transfer is written
+	sprite_target		.dsb 2 ; Where to put the sprite
+
+;;; Player
+	player_pos      .dsb 2 	; Position
+	player_vel      .dsb 2	; Velocity
+
+;;; Camera
+	camera_x      .dsb 1
+
+;;; Logic
+	dirty         .dsb 1
+	
+	.ende
+	
 Reset
 	SEI			; Disable IRQs
 	CLD			; Disable decimal mode
@@ -103,16 +104,21 @@ ClearMemory
 
 	JSR AwaitVerticalBlank	; Second wait
 
-
-InitVariables
-	LDA #$00		; Set initial camera position
-	STA camera_x
 	
-	LDA #$80		; Set initial player position
-	STA player_x
-	STA player_y
+;;; Player setup
+	LDA #$10		; Set initial position
+	STA player_pos
+	STA player_pos+1
 	
+	LDA #$00		; Set initial velocity
+	STA player_vel
+	STA player_vel+1
 
+	
+;; FlowerAnimation
+;; 	.db $08, $0A, $0C, $0A
+
+	
 LoadPalettes
 	LDA $2002	        ; Read PPU status to reset high/low latch
 	LDA #$3F
@@ -234,94 +240,180 @@ LoadNextAttributes
 LoadAttributesDone
 
 
-	JMP LoadSpritesDone
-LoadSprites
+	JMP StartSpriteTransferDone
+StartSpriteTransfer
+	LDA #$00		; Reset data offset
+	STA sprite_data_offset
+	
 	LDA #$00
 	STA $2003	        ; Set the low byte (00) of the RAM address
 	LDA #$02
 	STA $4014               ; Set the high byte (02) of the RAM address, start the transfer
+	RTS
+	
+StartSpriteTransferDone
 
-	LDA #$00 		; Store initial source offset DO SOMETHING WITH THIS WRONG VARIABLE NAME
-	STA sprite_source_offset
-	LDA #$02		
-	STA sprite_source_offset+1
-	
-	LDA #$00		; Set initial placement position
-	STA sprite_target
-	STA sprite_target+1
-	
+
+	JMP DrawSpriteDone
+DrawSprite
 	LDX #$00
-	LDY #$00
+	LDY sprite_data_offset 	; Load the saved offset
 	
-LoadSpritesLoop
-	CPX #$00		; Account for scanline
+DrawSpriteLoop
+	CPX #$00  		; Write Y coordinate
 	LDA sprite_target+1
-	BNE -
-	SBC #$01		; Scanline correction
--
-	ADC sprite_offset+1
-	STA (sprite_source_offset),Y	; Set Y
-
-	INY
-
-	LDA sprite_source
-	STA (sprite_source_offset),Y	; Set tile
-
-	INY
-
-	LDA #%00000000
-	STA (sprite_source_offset),Y	; Color palette 0, no flipping
-
-	INY
-	
-	LDA sprite_target
-	ADC sprite_source_offset
-	STA (sprite_source_offset),Y	; Set X
-	
-	INY
-	
-	INX
-	CPX #$04
-	BEQ LoadSpritesReturn
-
-	JMP LoadNextSprite
-
-LoadNextSprite
-	CPX #$01
-	BNE --
--
-	INC sprite_source
-	LDA sprite_target
-	ADC #$07
-	STA sprite_target
-	JMP ++
---
-
-	CPX #$02
 	BNE +
-	LDA sprite_source
-	ADC #$0E
+	CLC
+	SBC #$01		; Scanline correction
++
+	STA ($0200),Y
+	
+	INY
+	
+	LDA sprite_source	; Write tile number
+	STA ($0200),Y
+	
+	INY
+	
+	LDA #%00000000 		; Color palette 0, no flipping
+	STA ($0200),Y
+	
+	INY
+	
+	LDA sprite_target	; Write X coordinate
+	CPX #$03
+ 	BNE ++
+	CLC
+ 	SBC #$01		; Fix weird glitch on last tile X
+++
+	STA ($0200),Y
+
+	INY
+	
+	LDA sprite_big
+	CMP #$00		; Possibly redundant?
+	BEQ DrawSpriteLoopDone	; Sprite isn't big (0)
+
+	INX
+	CPX #$04		; Finished rendering 4 segments of big sprite
+	BEQ DrawSpriteLoopDone
+
+	CPX #$02		; Account for bottom row
+	BNE +++
+	
+	LDA sprite_source	; Move one row down
+	;; CLC
+	ADC #$0D
 	STA sprite_source
 	
-	LDA sprite_target
-	SBC #$07
+	LDA sprite_target	; Reset X
+	;; CLC
+	SBC #$0F
 	STA sprite_target
 	
-	LDA sprite_target+1
+	LDA sprite_target+1	; Increase Y
+	;; CLC
 	ADC #$07
 	STA sprite_target+1
-	JMP ++
++++
+	
+	INC sprite_source
+	LDA sprite_target
+	;; CLC
+	ADC #$08
+	STA sprite_target
+	JMP DrawSpriteLoop
+	
+	
+DrawSpriteLoopDone
+	TYA
+	STA sprite_data_offset	; Save the offset
+	RTS
+	
+DrawSpriteDone
+
+
+	JMP ReadControllerDone
+ReadController
+	LDA #$01		; Initiate read
+	STA $4016
+	LDA #$00
+	STA $4016
+
+	LDX #$00		; Reset X
+	
+ReadController1Loop
+	LDA $4016
+	AND #%00000001		; Check if the button is pressed
+	BEQ NotPressed
+
+	CPX #$06		; Left
+	BNE +
+	INC player_vel
 +
 
-	CPX #$03
-	BEQ -
-	
+	CPX #$07		; Right
+ 	BNE ++
+ 	DEC player_vel
 ++
-	JMP LoadSpritesLoop
 
-LoadSpritesReturn
+NotPressed
+	INX
+	CPX #$08
+	BNE ReadController1Loop
+ReadController1LoopDone
+
+;; 	LDX #$00		; Reset X
+	
+;; ReadController2Loop
+;; 	LDA $4017
+;; 	INX
+;; 	CPX #$08
+;; 	BNE ReadController2Loop
+;; ReadController2LoopDone
+	
 	RTS
-LoadSpritesDone
+ReadControllerDone
+	
+
+	JMP PlayerDrawDone
+PlayerDraw
+	LDA #$01		; Big sprite
+	STA sprite_big
+	
+	LDA #$00		; Set tile
+	STA sprite_source
+	LDA player_pos		; Set position
+	STA sprite_target
+	LDA player_pos+1
+	STA sprite_target+1
+	JSR DrawSprite		; Actually draw sprite 1
+	
+	LDA #$02		; Set tile
+	STA sprite_source
+	LDA #$30		; Set position
+	STA sprite_target
+	STA sprite_target+1
+	JSR DrawSprite		; Actually draw sprite 2
+	
+	RTS
+PlayerDrawDone
+
+	
+	JMP PlayerUpdateDone
+PlayerUpdate
+	LDA player_pos		; Increment X by VX
+	CLC
+	ADC player_vel
+	STA player_pos
+
+	LDA player_pos+1	; Increment Y by VY
+	CLC
+	ADC player_vel+1
+	STA player_pos+1
+
+	RTS
+PlayerUpdateDone
 	
 
 PPUCleanUp:
@@ -332,55 +424,25 @@ PPUCleanUp:
 	LDA #$00
 	STA $2005		; Reset scrolling
 	STA $2005
-	
 
-Forever				; Wait until NMI occurs	
-	;; LDA dirty
-	;; BEQ Forever
 	
-	;; LDA #$00             ; Clear dirty flag
-	;; STA dirty
+Forever				; Wait until NMI occurs
+	LDA dirty		; Check if dirty
+	BEQ Forever
+	DEC dirty		; Set clean
 
-	;; LDA frame
-;; 	CMP #$05
-;; 	BNE Forever
-;; 	LDA #$00
-;; 	STA frame
+	JSR ReadController
+	JSR PlayerUpdate
 	
-;; 	LDA direction
-;; 	BNE left
-;; 	INC initialSprite
-;; 	INC initialSprite
-;; 	LDA initialSprite
-;; 	CMP #$0C
-;; 	BNE Forever
-;; 	INC direction
-;; 	JMP Forever
-;; left
-;; 	DEC initialSprite
-;; 	DEC initialSprite
-;; 	LDA initialSprite
-;; 	CMP #$08
-;; 	BNE Forever
-;; 	LDA #$00
-;; 	STA direction
 	JMP Forever
 
 
-NMI
-	LDA #$01
+NMI				; This is the time to do all drawing
+	LDA #$01		; Set dirty flag
 	STA dirty
-
-	INC frame
-
-	JSR LoadSprites
 	
-	INC camera_x
-	
-	LDA camera_x
-	STA $2005
-	LDA #$00
-	STA $2005
+	JSR StartSpriteTransfer
+	JSR PlayerDraw
 	
 	RTI
 
@@ -394,20 +456,13 @@ IRQ
 ;********************************
 
 Palettes
-	;; .incbin "palette.pal"
-	.incbin "remco.dat"
+	.incbin "palette.dat"
 
-
-Nametable_0
-	.incbin "remco.nam"
-
-Nametable_1
-	.incbin "remco.nam"
 	
-;; Nametable_0
-;; 	.incbin "nametable_0.nam"
-;; Nametable_1			
-;;  	.incbin "nametable_1.nam"
+Nametable_0
+	.incbin "nametable_0.nam"
+Nametable_1			
+ 	.incbin "nametable_1.nam"
 
 
 Attributes
@@ -445,4 +500,4 @@ Attributes
 ; CHR-ROM bank
 ;********************************
 
-	.incbin "remco.chr"	; Includes 8KB graphics file
+	.incbin "graphics.chr"	; Includes 8KB graphics file
