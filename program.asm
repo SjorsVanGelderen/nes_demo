@@ -316,6 +316,11 @@ DrawSpriteLoop
 	ADC #$07
 	STA sprite_target+1
 +++
+
+	CPX #$03                ; Weird drawing bug fix for last tile X
+	BNE ++++
+	INC sprite_target
+++++
 	
 	INC sprite_source
 	LDA sprite_target
@@ -347,15 +352,25 @@ ReadController1Loop
 	AND #%00000001		; Check if the button is pressed
 	BEQ NotPressed
 
+	CPX #$04		; Up
+	BNE +++++
+	DEC player_vel+1
++++++
+	
+	CPX #$05		; Down
+	BNE ++++++
+	INC player_vel+1
+++++++
+
 	CPX #$06		; Left
-	BNE +
-	INC player_vel
-+
+	BNE +++++++
+	DEC player_vel
++++++++
 
 	CPX #$07		; Right
- 	BNE ++
- 	DEC player_vel
-++
+ 	BNE ++++++++
+ 	INC player_vel
+++++++++
 
 NotPressed
 	INX
