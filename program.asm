@@ -53,6 +53,11 @@
 	player_pos      .dsb 2 	; Position
 	player_vel      .dsb 2	; Velocity
 
+;;; Collision
+	collision_pos   .dsb 2	; Coordinates of the collision check
+	coll_nt_offset	.dsb 2	; Nametable offset
+	collision	.dsb 1	; Flag to be set by collision subroutine
+	
 ;;; Camera
 	camera_x      .dsb 1
 
@@ -369,7 +374,9 @@ ReadController1Loop
 
 	CPX #$07		; Right
  	BNE ++++++++
- 	INC player_vel
+ 	;; INC player_vel
+	LDA #$01
+	STA player_vel
 ++++++++
 
 NotPressed
@@ -391,6 +398,47 @@ ReadController1LoopDone
 ReadControllerDone
 	
 
+	JMP MapCollisionDone
+MapCollision
+	LDA #$00		; Reset collision flag
+	STA collision		
+	
+	LDA #<Nametable_0	; Store nametable address
+	STA coll_nt_offset
+	LDA #>Nametable_0
+	STA coll_nt_offset+1
+	
+	LDA collision_pos	; Extract least significant hex
+	AND #%00001111
+	TAX
+	
+	LDA collision_pos	; Extract most significant hex
+	AND #%11110000		
+	LSR A
+	LSR A
+	LSR A
+	LSR A
+	ASL
+	
+	CPX #$08		; Determine sub-tile
+ 	BCC +
+	CLC
+	ADC #$01
++
+	
+	TAY			; Store the offset
+	
+	LDA (coll_nt_offset),Y	; Check if the tile is blocking (currently only tile 1)
+	CMP #$01
+	BNE ++
+	LDA #$01
+	STA collision
+++
+	
+	RTS
+MapCollisionDone	
+
+	
 	JMP PlayerDrawDone
 PlayerDraw
 	LDA #$01		; Big sprite
@@ -426,6 +474,22 @@ PlayerUpdate
 	CLC
 	ADC player_vel+1
 	STA player_pos+1
+
+	LDA player_pos		; Perform collision check
+	STA collision_pos
+	LDA player_pos+1
+	STA collision_pos+1
+	JSR MapCollision
+
+	LDA #$01		
+	CMP collision
+	BNE +
+	LDA #$00		; Set player position to 0, 0
+	;; STA player_pos
+	;; STA player_pos+1
+	STA player_vel		; Stop all velocity
+	STA player_vel+1
++
 
 	RTS
 PlayerUpdateDone
