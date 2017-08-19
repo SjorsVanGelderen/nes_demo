@@ -27,44 +27,6 @@
 ;********************************
     
 	.base $10000-(PRG_COUNT*$4000)
-
-	
-;********************************
-; Variables
-;********************************
-
-	.enum $0000
-
-;;; Background
-	bg_offset     .dsb 2
-	bg_boundary   .dsb 1
-
-;;; Animations
-	anim_address  .dsb 2
-	anim_length   .dsb 1
-
-;;; Sprites
-	sprite_big              .dsb 1 ; Whether or not the sprite is big (2x2 as opposed to 1x1)
-	sprite_source		.dsb 1 ; Number of sprite to render
-	sprite_data_offset	.dsb 1 ; Determines which byte of the transfer is written
-	sprite_target		.dsb 2 ; Where to put the sprite
-
-;;; Player
-	player_pos      .dsb 2 	; Position
-	player_vel      .dsb 2	; Velocity
-
-;;; Collision
-	collision_pos   .dsb 2	; Coordinates of the collision check
-	coll_nt_offset	.dsb 2	; Nametable offset
-	collision	.dsb 1	; Flag to be set by collision subroutine
-	
-;;; Camera
-	camera_x      .dsb 1
-
-;;; Logic
-	dirty         .dsb 1
-	
-	.ende
 	
 Reset
 	SEI			; Disable IRQs
@@ -110,6 +72,57 @@ ClearMemory
 	JSR AwaitVerticalBlank	; Second wait
 
 	
+	.enum $0000		; Not quite clear on this yet
+
+;;; Background
+	bg_offset     		.dsb 2
+	bg_boundary   		.dsb 1
+
+;;; Animations
+	anim_address  		.dsb 2
+	anim_length   		.dsb 1
+
+;;; Sprites
+	sprite_big              .dsb 1 ; Whether or not the sprite is big (2x2 as opposed to 1x1)
+	sprite_source		.dsb 1 ; Number of sprite to render
+	sprite_data_offset	.dsb 1 ; Determines which byte of the transfer is written
+	sprite_target		.dsb 2 ; Where to put the sprite
+
+;;; Player
+	player_pos      	.dsb 2 	; Position
+	player_vel      	.dsb 2	; Velocity
+
+;;; Collision
+	collision_pos   	.dsb 2	; Coordinates of the collision check
+	coll_nt_offset		.dsb 2	; Nametable offset
+	collision		.dsb 1	; Flag to be set by collision subroutine
+	;; blocking_tiles  	.db $20,$21,$30,$31
+	blocking_tiles          .dsb 4
+	blocking_tiles_amount 	.db 4
+	current_blocking_tile   .dsb 1
+	
+;;; Camera
+	camera_x      		.dsb 1
+
+;;; Logic
+	dirty         		.dsb 1
+	
+	.ende
+
+
+;;; Predefined bytes
+	LDA #$20
+	STA blocking_tiles
+	LDA #$21
+	STA blocking_tiles+1
+	LDA #$30
+	STA blocking_tiles+2
+	LDA #$31
+	STA blocking_tiles+3
+	LDA #$04
+	STA blocking_tiles_amount
+
+	
 ;;; Player setup
 	LDA #$10		; Set initial position
 	STA player_pos
@@ -118,10 +131,6 @@ ClearMemory
 	LDA #$00		; Set initial velocity
 	STA player_vel
 	STA player_vel+1
-
-	
-;; FlowerAnimation
-;; 	.db $08, $0A, $0C, $0A
 
 	
 LoadPalettes
@@ -357,19 +366,37 @@ ReadController1Loop
 	AND #%00000001		; Check if the button is pressed
 	BEQ NotPressed
 
+	CPX #$00		;A
+	BNE +
+	LDA #$00
+	STA player_vel
+	STA player_vel+1
++
+	
 	CPX #$04		; Up
 	BNE +++++
+	LDA #$00
+	STA player_vel+1
 	DEC player_vel+1
+	LDA #$00
+	STA player_vel
 +++++
 	
 	CPX #$05		; Down
 	BNE ++++++
-	INC player_vel+1
+	LDA #$01
+	STA player_vel+1
+	LDA #$00
+	STA player_vel
 ++++++
 
 	CPX #$06		; Left
 	BNE +++++++
+	LDA #$00
+	STA player_vel
 	DEC player_vel
+	LDA #$00
+	STA player_vel+1
 +++++++
 
 	CPX #$07		; Right
@@ -377,6 +404,8 @@ ReadController1Loop
  	;; INC player_vel
 	LDA #$01
 	STA player_vel
+	LDA #$00
+	STA player_vel+1
 ++++++++
 
 NotPressed
@@ -398,6 +427,7 @@ ReadController1LoopDone
 ReadControllerDone
 	
 
+;;; Could certainly be compressed
 	JMP MapCollisionDone
 MapCollision
 	LDA #$00		; Reset collision flag
@@ -407,10 +437,8 @@ MapCollision
 	STA coll_nt_offset
 	LDA #>Nametable_0
 	STA coll_nt_offset+1
-
-	;; Statements below could be compressed
 	
-;;; Horizontal collision
+;;; Horizontal collision coordinate
 	LDA collision_pos	; Extract least significant hex
 	AND #%00001111
 	TAX
@@ -430,7 +458,11 @@ MapCollision
 +
 	STA collision_pos       ; Store X coordinate of NT query
 
-;;; Vertical collision
+;;; Vertical collision coordinate
+	LDA collision_pos+1	; Extract least significant hex
+	AND #%00001111
+	TAX
+	
 	LDA collision_pos+1
 	AND #%11110000          ; Extract most significant hex
 	LSR A
@@ -438,28 +470,49 @@ MapCollision
 	LSR A
 	LSR A
 	ASL
-
+	
 	CPX #$08                ; Determine sub-tile
-	BCC +
+	BCC ++
 	CLC
 	ADC #$01
-+
+++
 
 	STA collision_pos+1	; Store Y coordinate of NT query
 
-;;; Query isn't correct yet (Y coordinate is botched)
+	LDX #$FF		; Determine NT offset according to Y
+-
+	INX
+	CPX collision_pos+1	; Until Y has been accounted for
+	BEQ +++
+	LDA coll_nt_offset	; Load least significant byte of offset
+	CLC
+	ADC #$20		; Add a row of 32 tiles (hex 20)
+	STA coll_nt_offset
+	BCC -
+	INC coll_nt_offset+1	; If we exceeded the limit, INC the most significant byte of offset
+	JMP -			; Continue the loop
++++
 	
-	LDA collision_pos
-	TAY			
-	LDA (coll_nt_offset),Y	; Check if the tile is blocking (currently only tile 1)
-	CMP #$01
-	BNE ++
-	LDA #$01
+	LDX #$FF
+
+--
+	INX			; For each blocking tile
+	CPX blocking_tiles_amount
+	BEQ ++++
+	
+	LDA blocking_tiles,X	; Load the current tile to check against
+	STA current_blocking_tile
+	
+	LDY collision_pos	; Check if the tile is blocking
+	LDA (coll_nt_offset),Y
+	CMP current_blocking_tile
+	BNE --			; No collision, continue the check
+	LDA #$01		; Set collision flag
 	STA collision
-++
+++++
 	
 	RTS
-MapCollisionDone	
+MapCollisionDone
 
 	
 	JMP PlayerDrawDone
@@ -498,8 +551,7 @@ PlayerUpdate
 	ADC player_vel+1
 	STA player_pos+1
 
-	LDA player_pos		; Perform collision check
-	ADC #$10
+	LDA player_pos		; Perform collision check TOP LEFT
 	STA collision_pos
 	LDA player_pos+1
 	STA collision_pos+1
@@ -512,6 +564,52 @@ PlayerUpdate
 	STA player_vel		; Stop all velocity
 	STA player_vel+1
 +
+
+	LDA player_pos		; Perform collision check TOP RIGHT
+	ADC #$10
+	STA collision_pos
+	LDA player_pos+1
+	STA collision_pos+1
+	JSR MapCollision
+
+	LDA #$01		
+	CMP collision
+	BNE ++
+	LDA #$00
+	STA player_vel		; Stop all velocity
+	STA player_vel+1
+++
+
+	LDA player_pos		; Perform collision check BOTTOM LEFT
+	STA collision_pos
+	LDA player_pos+1
+	ADC #$10
+	STA collision_pos+1
+	JSR MapCollision
+
+	LDA #$01		
+	CMP collision
+	BNE +++
+	LDA #$00
+	STA player_vel		; Stop all velocity
+	STA player_vel+1
++++
+
+	LDA player_pos		; Perform collision check BOTTOM RIGHT
+	ADC #$10
+	STA collision_pos
+	LDA player_pos+1
+	ADC #$10
+	STA collision_pos+1
+	JSR MapCollision
+
+	LDA #$01		
+	CMP collision
+	BNE ++++
+	LDA #$00
+	STA player_vel		; Stop all velocity
+	STA player_vel+1
+++++
 
 	RTS
 PlayerUpdateDone
