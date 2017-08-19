@@ -401,13 +401,16 @@ ReadControllerDone
 	JMP MapCollisionDone
 MapCollision
 	LDA #$00		; Reset collision flag
-	STA collision		
+	STA collision
 	
 	LDA #<Nametable_0	; Store nametable address
 	STA coll_nt_offset
 	LDA #>Nametable_0
 	STA coll_nt_offset+1
+
+	;; Statements below could be compressed
 	
+;;; Horizontal collision
 	LDA collision_pos	; Extract least significant hex
 	AND #%00001111
 	TAX
@@ -425,9 +428,29 @@ MapCollision
 	CLC
 	ADC #$01
 +
+	STA collision_pos       ; Store X coordinate of NT query
+
+;;; Vertical collision
+	LDA collision_pos+1
+	AND #%11110000          ; Extract most significant hex
+	LSR A
+	LSR A
+	LSR A
+	LSR A
+	ASL
+
+	CPX #$08                ; Determine sub-tile
+	BCC +
+	CLC
+	ADC #$01
++
+
+	STA collision_pos+1	; Store Y coordinate of NT query
+
+;;; Query isn't correct yet (Y coordinate is botched)
 	
-	TAY			; Store the offset
-	
+	LDA collision_pos
+	TAY			
 	LDA (coll_nt_offset),Y	; Check if the tile is blocking (currently only tile 1)
 	CMP #$01
 	BNE ++
@@ -476,6 +499,7 @@ PlayerUpdate
 	STA player_pos+1
 
 	LDA player_pos		; Perform collision check
+	ADC #$10
 	STA collision_pos
 	LDA player_pos+1
 	STA collision_pos+1
@@ -484,9 +508,7 @@ PlayerUpdate
 	LDA #$01		
 	CMP collision
 	BNE +
-	LDA #$00		; Set player position to 0, 0
-	;; STA player_pos
-	;; STA player_pos+1
+	LDA #$00
 	STA player_vel		; Stop all velocity
 	STA player_vel+1
 +
