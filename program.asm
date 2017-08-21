@@ -71,7 +71,10 @@ ClearMemory
 
 	JSR AwaitVerticalBlank	; Second wait
 
-	
+
+;********************************
+; Variables
+;********************************
 	.enum $0000		; Not quite clear on this yet
 
 ;;; Background
@@ -90,7 +93,11 @@ ClearMemory
 
 ;;; Player
 	player_pos      	.dsb 2 	; Position
+	player_pos_saved	.dsb 2	; Position history
 	player_vel      	.dsb 2	; Velocity
+	player_accel		.dsb 2	; Counts acceleration frames
+	player_moving		.db 0	; This flag determines if the player is moving horizontally
+	player_grounded         .db 0	; This flag determines if the player is on the floor
 
 ;;; Collision
 	collision_pos   	.dsb 2	; Coordinates of the collision check
@@ -360,60 +367,107 @@ ReadController
 	STA $4016
 
 	LDX #$00		; Reset X
+	STX player_moving	; Reset moving flags
+	;; STX player_moving+1
 	
 ReadController1Loop
 	LDA $4016
 	AND #%00000001		; Check if the button is pressed
 	BEQ NotPressed
 
-	CPX #$00		;A
-	BNE +
-	LDA #$00
-	STA player_vel
-	STA player_vel+1
-+
+;; 	CPX #$00		;A
+;; 	BNE ReadADone
+;; 	LDA #$00
+;; 	STA player_vel
+;; 	STA player_vel+1
+;; 	JMP NotPressed
+;; ReadADone
 	
 	CPX #$04		; Up
-	BNE +++++
-	LDA #$00
+	BNE ReadUpDone
+	LDA player_grounded	; Check if the player is already jumping
+	BEQ NotPressed
+	LDA #$00		; Set moving vertically(jumping) flag
+	STA player_grounded
+	LDA #$FA		; Set jump speed
 	STA player_vel+1
-	DEC player_vel+1
-	LDA #$00
-	STA player_vel
-+++++
+	JMP NotPressed
+ReadUpDone
 	
-	CPX #$05		; Down
-	BNE ++++++
-	LDA #$01
-	STA player_vel+1
-	LDA #$00
-	STA player_vel
-++++++
+;; 	CPX #$05		; Down
+;; 	BNE ReadDownDone
+;; 	LDA #$01		; Set vertically moving flag
+;; 	STA player_moving+1	
+;; 	INC player_accel+1	; Increase acceleration frames
+;; 	LDA player_accel+1
+;; 	CMP #$05
+;; 	BNE NotPressed
+;; 	LDA #$00		; Reset acceleration frame counter
+;; 	STA player_accel+1
+;; 	LDA player_vel+1	; Check if velocity isn't already at max
+;; 	CMP #$02
+;; 	BEQ NotPressed		; Possibly incorrect branch condition
+;; 	INC player_vel+1	; Increase velocity
+;; ReadDownDone
 
 	CPX #$06		; Left
-	BNE +++++++
-	LDA #$00
-	STA player_vel
-	DEC player_vel
-	LDA #$00
-	STA player_vel+1
-+++++++
+	BNE ReadLeftDone
+	LDA #$01		; Set horizontally moving flag
+	STA player_moving	
+	INC player_accel	; Increase acceleration frames
+	LDA player_accel
+	CMP #$05
+	BNE NotPressed
+	LDA #$00		; Reset acceleration frame counter
+	STA player_accel
+	LDA player_vel		; Check if velocity isn't already at max
+	CMP #$FE
+	BEQ NotPressed		; Possibly incorrect branch condition
+	DEC player_vel		; Increase velocity
+ReadLeftDone
 
 	CPX #$07		; Right
- 	BNE ++++++++
- 	;; INC player_vel
-	LDA #$01
-	STA player_vel
-	LDA #$00
-	STA player_vel+1
-++++++++
-
+ 	BNE ReadRightDone
+	LDA #$01		; Set horizontally moving flag
+	STA player_moving	
+	INC player_accel	; Increase acceleration frames
+	LDA player_accel
+	CMP #$05
+	BNE NotPressed
+	LDA #$00		; Reset acceleration frame counter
+	STA player_accel
+	LDA player_vel		; Check if velocity isn't already at max
+	CMP #$02
+	BEQ NotPressed		; Possibly incorrect branch condition
+	INC player_vel		; Increase velocity
+ReadRightDone
+	
+	
 NotPressed
 	INX
 	CPX #$08
-	BNE ReadController1Loop
+	BNE ReadController1Loop	
 ReadController1LoopDone
 
+
+	LDA player_vel		; Check if the player is moving
+	CMP #$00
+	BEQ NotMoving
+	
+	LDA player_moving	; Reduce horizontal speed if necessary
+	BNE NotMoving
+	LDA player_vel
+ 	CMP #$FE
+ 	BCC ++
+ 	INC player_vel		; If <0 increase
+	JMP NotMoving
+++
+	CMP #$03
+	BCS NotMoving
+	DEC player_vel		; If >0 decrease
+NotMoving
+
+	
 ;; 	LDX #$00		; Reset X
 	
 ;; ReadController2Loop
@@ -515,6 +569,151 @@ MapCollision
 MapCollisionDone
 
 	
+	JMP PlayerUpdateDone
+PlayerUpdate
+	LDA player_grounded	; Apply gravity if not touching the floor
+	BNE +
+	INC player_vel+1
+	CMP #$05
+	BCC +
+	DEC player_vel+1
++
+	
+;;      INC $0020
+;; 	INC player_accel+1	; Process and check accel timer
+;; 	LDA player_accel+1	
+;; 	CMP #$02
+;; 	BCS +
+;; 	LDA #$00		; Reset accel timer
+;; 	STA player_accel+1
+;; 	INC player_vel+1	; Increase downward velocity
+;; 	LDA player_vel+1
+;; 	STA $0020
+;; 	CMP #$05		; Restrict gravity force
+;; 	BCC +
+;; 	DEC player_vel+1
+;; +
+
+	LDA player_vel
+	STA $0020
+	
+	LDA player_pos		; Save current position
+	STA player_pos_saved
+	LDA player_pos+1
+	STA player_pos_saved+1
+	
+	LDA player_pos		; Add horizontal velocity
+	CLC
+	ADC player_vel
+	STA player_pos
+
+	LDA player_pos		; Perform collision check BOTTOM LEFT
+	STA collision_pos
+	LDA player_pos+1
+	ADC #$20
+	STA collision_pos+1
+	JSR MapCollision
+
+	LDA #$01		
+	CMP collision
+	BNE +++
+	LDA player_pos_saved	; Reset position
+	STA player_pos
+	;; JMP PlayerCollisionDone
++++
+
+	LDA player_pos+1	; Add vertical velocity
+	CLC
+	ADC player_vel+1
+	STA player_pos+1
+	
+	LDA player_pos		; Perform collision check BOTTOM LEFT
+	STA collision_pos
+	LDA player_pos+1
+	ADC #$20
+	STA collision_pos+1
+	JSR MapCollision
+
+	LDA #$01
+	CMP collision
+	BNE +++
+	LDA #$01
+	STA player_grounded	; Player is touching some kind of floor
+	LDA player_pos_saved+1
+	STA player_pos+1
+	LDA #$00
+	STA player_vel+1
++++
+	PlayerCollisionDone
+
+;; 	LDA player_pos		; Perform collision check TOP LEFT
+;; 	STA collision_pos
+;; 	LDA player_pos+1
+;; 	STA collision_pos+1
+;; 	JSR MapCollision
+
+;; 	LDA #$01		
+;; 	CMP collision
+;; 	BNE +
+;; 	LDA player_pos_saved	; Reset position
+;; 	STA player_pos
+;; 	LDA player_pos_saved+1
+;; 	STA player_pos+1
+;; +
+
+;; 	LDA player_pos		; Perform collision check TOP RIGHT
+;; 	ADC #$10
+;; 	STA collision_pos
+;; 	LDA player_pos+1
+;; 	STA collision_pos+1
+;; 	JSR MapCollision
+
+;; 	LDA #$01		
+;; 	CMP collision
+;; 	BNE ++
+;; 	LDA player_pos_saved	; Reset position
+;; 	STA player_pos
+;; 	LDA player_pos_saved+1
+;; 	STA player_pos+1
+;; ++
+	
+;; 	LDA player_pos		; Perform collision check BOTTOM LEFT
+;; 	STA collision_pos
+;; 	LDA player_pos+1
+;; 	ADC #$20
+;; 	STA collision_pos+1
+;; 	JSR MapCollision
+
+;; 	LDA #$01		
+;; 	CMP collision
+;; 	BNE +++
+;; 	LDA player_pos_saved	; Reset position
+;; 	STA player_pos
+;; 	LDA player_pos_saved+1
+;; 	STA player_pos+1
+;; +++
+
+;; 	LDA player_pos		; Perform collision check BOTTOM RIGHT
+;; 	ADC #$10
+;; 	STA collision_pos
+;; 	LDA player_pos+1
+;; 	ADC #$10
+;; 	STA collision_pos+1
+;; 	JSR MapCollision
+
+;; 	LDA #$01		
+;; 	CMP collision
+;; 	BNE ++++
+;; 	LDA player_pos_saved	; Reset position
+;; 	STA player_pos
+;; 	LDA player_pos_saved+1
+;; 	STA player_pos+1
+;; ++++
+
+	RTS
+PlayerUpdateDone
+
+	
 	JMP PlayerDrawDone
 PlayerDraw
 	LDA #$01		; Big sprite
@@ -537,82 +736,6 @@ PlayerDraw
 	
 	RTS
 PlayerDrawDone
-
-	
-	JMP PlayerUpdateDone
-PlayerUpdate
-	LDA player_pos		; Increment X by VX
-	CLC
-	ADC player_vel
-	STA player_pos
-
-	LDA player_pos+1	; Increment Y by VY
-	CLC
-	ADC player_vel+1
-	STA player_pos+1
-
-	LDA player_pos		; Perform collision check TOP LEFT
-	STA collision_pos
-	LDA player_pos+1
-	STA collision_pos+1
-	JSR MapCollision
-
-	LDA #$01		
-	CMP collision
-	BNE +
-	LDA #$00
-	STA player_vel		; Stop all velocity
-	STA player_vel+1
-+
-
-	LDA player_pos		; Perform collision check TOP RIGHT
-	ADC #$10
-	STA collision_pos
-	LDA player_pos+1
-	STA collision_pos+1
-	JSR MapCollision
-
-	LDA #$01		
-	CMP collision
-	BNE ++
-	LDA #$00
-	STA player_vel		; Stop all velocity
-	STA player_vel+1
-++
-
-	LDA player_pos		; Perform collision check BOTTOM LEFT
-	STA collision_pos
-	LDA player_pos+1
-	ADC #$10
-	STA collision_pos+1
-	JSR MapCollision
-
-	LDA #$01		
-	CMP collision
-	BNE +++
-	LDA #$00
-	STA player_vel		; Stop all velocity
-	STA player_vel+1
-+++
-
-	LDA player_pos		; Perform collision check BOTTOM RIGHT
-	ADC #$10
-	STA collision_pos
-	LDA player_pos+1
-	ADC #$10
-	STA collision_pos+1
-	JSR MapCollision
-
-	LDA #$01		
-	CMP collision
-	BNE ++++
-	LDA #$00
-	STA player_vel		; Stop all velocity
-	STA player_vel+1
-++++
-
-	RTS
-PlayerUpdateDone
 	
 
 PPUCleanUp:
